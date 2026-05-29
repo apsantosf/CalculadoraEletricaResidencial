@@ -7,9 +7,9 @@ interface ResultadoDimensionamento {
   disjuntor: number;
 }
 
-// 1. Regra NBR 5410: Iluminação (60VA para primeiros 6m², +10VA a cada 4m² inteiros)
+// 1. Regra NBR 5410: Iluminação (100VA para primeiros 6m², +60VA a cada 4m² inteiros)
 export function calcularIluminacao(area: number): number {
-  if (area < 6) return 100; // Mínimo para cômodos pequenos
+  if (area < 6) return 100;
   const areaRestante = area - 6;
   const adicionais = Math.floor(areaRestante / 4);
   return 100 + adicionais * 60;
@@ -21,10 +21,8 @@ export function calcularQuantidadeTugs(
   perimetro: number,
 ): number {
   if (tipoComodo === "servico") {
-    // Cozinha, área de serviço: 1 tomada a cada 3.5m ou fração
     return Math.ceil(perimetro / 3.5);
   }
-  // Salas e quartos: 1 tomada a cada 5m ou fração
   return Math.ceil(perimetro / 5);
 }
 
@@ -34,14 +32,12 @@ export function calcularPotenciaTugs(
   quantity: number,
 ): number {
   if (tipoComodo === "servico") {
-    // Primeiras 3 tomadas têm 600VA cada, as demais 100VA
     let potencia = 0;
     for (let i = 1; i <= quantity; i++) {
       potencia += i <= 3 ? 600 : 100;
     }
     return potencia;
   }
-  // Salas e quartos: todas têm 100VA
   return quantity * 100;
 }
 
@@ -120,22 +116,25 @@ export function calcularAlimentadorGeral({
   potenciasTueWatts,
   tensao,
 }: DadosQuadro) {
-  let falarDemandaTue = 1.0; // Inicializando o valor da demanda de TUE de reserva antes
+  // Correção dos fatores de demanda para Iluminação e TUGs (valores padrão NBR 5410)
   let fatorDemandaIlumTug = 0.5;
-  if (potenciaIlumTugVA <= 1000) falarDemandaTue = 0.86;
+  if (potenciaIlumTugVA <= 1000) fatorDemandaIlumTug = 0.86;
   else if (potenciaIlumTugVA <= 2000) fatorDemandaIlumTug = 0.75;
   else if (potenciaIlumTugVA <= 3000) fatorDemandaIlumTug = 0.66;
+  else if (potenciaIlumTugVA <= 4000) fatorDemandaIlumTug = 0.59;
+  else if (potenciaIlumTugVA <= 5000) fatorDemandaIlumTug = 0.52;
 
   const demandaIlumTug = potenciaIlumTugVA * fatorDemandaIlumTug;
 
+  // Correção dos fatores de demanda para TUEs (correção do bug da variável digitar errada)
   const qtdTues = potenciasTueWatts.length;
   let fatorDemandaTue = 1.0;
-  if (qtdTues === 2) falarDemandaTue = 0.75;
+  if (qtdTues === 2) fatorDemandaTue = 0.75;
   else if (qtdTues === 3) fatorDemandaTue = 0.7;
   else if (qtdTues > 3) fatorDemandaTue = 0.6;
 
   const somaTueWatts = potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
-  const demandaTue = somaTueWatts * falarDemandaTue;
+  const demandaTue = somaTueWatts * fatorDemandaTue;
 
   const potenciaTotalDemandada = demandaIlumTug + demandaTue;
   const correnteGeral = potenciaTotalDemandada / tensao;
