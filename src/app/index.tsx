@@ -12,6 +12,9 @@ import {
   dimensionarCircuito,
 } from "../utils/calculations";
 
+// 📦 Importando a versão automaticamente a partir do package.json na raiz do projeto
+import { version } from "../../package.json";
+
 export default function TelaComodos() {
   const {
     tensaoGeral,
@@ -71,7 +74,7 @@ export default function TelaComodos() {
         nome: `${nomeFinal} (TUG)`,
         tipo: "tug",
         potenciaVA: potTugs,
-        detalhe: `(${qtdTugs} tomadas)`, // 👈 Passando a quantidade de tomadas detalhada!
+        detalhe: `(${qtdTugs} tomadas)`,
       },
     ]);
   };
@@ -80,10 +83,10 @@ export default function TelaComodos() {
     <View style={styles.wrapperWeb}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
         showsVerticalScrollIndicator={true}
       >
-        {/* Identificação Didática da Norma Técnica */}
+        {/* Identificação Didática da Norma Técnico */}
         <View style={styles.cardNorma}>
           <Text style={styles.txtNormaMain}>
             Dimensionamento Baseado na Norma
@@ -180,6 +183,11 @@ export default function TelaComodos() {
           </View>
         )}
       </ScrollView>
+
+      {/* 🏷️ Rodapé fixado abaixo do ScrollView */}
+      <View style={styles.containerRodape}>
+        <Text style={styles.txtVersaoApp}>Versão {version}</Text>
+      </View>
     </View>
   );
 }
@@ -236,7 +244,24 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#e5e7eb",
     borderRadius: 10,
+    marginBottom: 10,
   },
   txtResumoTitulo: { fontSize: 14, fontWeight: "bold", color: "#374151" },
   txtResumoSub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  containerRodape: {
+    width: "100%",
+    maxWidth: 450,
+    alignSelf: "center",
+    backgroundColor: "#ffffff", // Mudado para branco para destacar a barra do rodapé
+    paddingVertical: 10,
+    paddingBottom: 25, // Adicionado espaço para não cobrir com o menu de abas
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  txtVersaoApp: {
+    fontSize: 12, // Aumentado levemente o tamanho
+    color: "#4b5563", // Cor alterada para cinza escuro de fácil leitura
+    textAlign: "center",
+    fontWeight: "700", // Deixado em negrito sutil para destacar
+  },
 });
