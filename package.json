@@ -1,7 +1,7 @@
 {
   "name": "calculadoraeletricaresidencial",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "dependencies": {
     "@expo/ui": "~56.0.14",
     "expo": "~56.0.6",
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "standard-version": "^9.5.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -39,7 +40,11 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:patch": "standard-version --release-as patch",
+    "release:major": "standard-version --release-as major"
   },
   "private": true
 }

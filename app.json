@@ -2,12 +2,16 @@
   "expo": {
     "name": "CalculadoraEletricaResidencial",
     "slug": "CalculadoraEletricaResidencial",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "calculadoraeletricaresidencial",
     "userInterfaceStyle": "automatic",
-    "platforms": ["android", "ios", "web"],
+    "platforms": [
+      "android",
+      "ios",
+      "web"
+    ],
     "ios": {
       "icon": "./assets/expo.icon"
     },
