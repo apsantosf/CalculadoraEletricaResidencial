@@ -1,12 +1,13 @@
 // src/components/ui/FormPrevisaoCarga.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useData } from "../../context/DataContext"; // 👈 Importa os dados globais
 import SeletorBotoes from "./SeletorBotoes";
 
 interface FormPrevisaoCargaProps {
@@ -21,10 +22,20 @@ interface FormPrevisaoCargaProps {
 export default function FormPrevisaoCarga({
   onCalcular,
 }: FormPrevisaoCargaProps) {
+  const { tokenReset } = useData(); // 👈 Puxa o alarme de reset do projeto
+
   const [nomeComodo, setNomeComodo] = useState("");
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
   const [tipoComodo, setTipoComodo] = useState<"social" | "servico">("social");
+
+  // Monitora o reset geral para esvaziar os inputs internos
+  useEffect(() => {
+    setNomeComodo("");
+    setArea("");
+    setPerimetro("");
+    setTipoComodo("social");
+  }, [tokenReset]);
 
   const handleSubmeter = () => {
     const numArea = parseFloat(area);

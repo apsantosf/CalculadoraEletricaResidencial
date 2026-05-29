@@ -1,5 +1,5 @@
 // src/app/tue.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
 import FormTue from "../components/ui/FormTue";
@@ -7,8 +7,13 @@ import { useData } from "../context/DataContext";
 import { dimensionarTUE } from "../utils/calculations";
 
 export default function TelaTues() {
-  const { adicionarCircuitos } = useData();
+  const { adicionarCircuitos, tokenReset } = useData();
   const [resultadoTue, setResultadoTue] = useState<any>(null);
+
+  // Escuta o reset do quadro para apagar os cards de resultado locais automaticamente
+  useEffect(() => {
+    setResultadoTue(null);
+  }, [tokenReset]);
 
   const handleCalcularTue = (dados: {
     watts: number;
@@ -16,8 +21,6 @@ export default function TelaTues() {
     tensao: 127 | 220;
   }) => {
     const fp = dados.tipo === "chuveiro" ? 1.0 : 0.85;
-
-    // Agora o cálculo usa a tensão específica vinda do formulário da TUE!
     const dimensionamento = dimensionarTUE(dados.watts, dados.tensao, fp);
     const nomeEquipamento =
       dados.tipo === "chuveiro" ? "Chuveiro" : "Ar-Condicionado";

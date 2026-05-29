@@ -1,5 +1,5 @@
 // src/components/ui/FormTue.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useData } from "../../context/DataContext"; // 👈 Importa os dados globais
 import SeletorBotoes from "./SeletorBotoes";
 
 interface FormTueProps {
@@ -18,11 +19,20 @@ interface FormTueProps {
 }
 
 export default function FormTue({ onCalcular }: FormTueProps) {
+  const { tokenReset } = useData(); // 👈 Puxa o alarme de reset do projeto
+
   const [potenciaTue, setPotenciaTue] = useState("");
   const [tipoTue, setTipoTue] = useState<"chuveiro" | "arConditioned">(
     "chuveiro",
   );
-  const [tensaoTue, setTensaoTue] = useState<127 | 220>(220); // Padrão 220V para cargas pesadas
+  const [tensaoTue, setTensaoTue] = useState<127 | 220>(220);
+
+  // Monitora o reset geral para esvaziar a caixa de Watts
+  useEffect(() => {
+    setPotenciaTue("");
+    setTipoTue("chuveiro");
+    setTensaoTue(220);
+  }, [tokenReset]);
 
   const handleSubmeter = () => {
     const watts = parseFloat(potenciaTue);

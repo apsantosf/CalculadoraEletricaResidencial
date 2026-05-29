@@ -7,6 +7,7 @@ export interface ItemCircuito {
   tipo: "iluminacao" | "tug" | "tue";
   potenciaVA: number;
   potenciaWatts?: number;
+  detalhe?: string; // 👈 Nova propriedade para guardar observações como a quantidade de tomadas
 }
 
 interface DataContextType {
@@ -14,26 +15,29 @@ interface DataContextType {
   setTensaoGeral: (tensao: 127 | 220) => void;
   circuitos: ItemCircuito[];
   adicionarCircuitos: (novos: ItemCircuito[]) => void;
-  removerCircuito: (id: string) => void; // 👈 Nova função adicionada!
+  removerCircuito: (id: string) => void;
   zerarProjeto: () => void;
+  tokenReset: number;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tensaoGeral, setTensaoGeral] = useState<127 | 220>(127);
-  const [circuitos, setCircutos] = useState<ItemCircuito[]>([]);
+  const [circuitos, setCircuitos] = useState<ItemCircuito[]>([]);
+  const [tokenReset, setTokenReset] = useState<number>(0);
 
   const adicionarCircuitos = (novos: ItemCircuito[]) => {
-    setCircutos((prev) => [...prev, ...novos]);
+    setCircuitos((prev) => [...prev, ...novos]);
   };
 
   const removerCircuito = (id: string) => {
-    setCircutos((prev) => prev.filter((c) => c.id !== id)); // 👈 Filtra e remove o item na hora
+    setCircuitos((prev) => prev.filter((c) => c.id !== id));
   };
 
   const zerarProjeto = () => {
-    setCircutos([]);
+    setCircuitos([]);
+    setTokenReset((prev) => prev + 1);
   };
 
   return (
@@ -45,6 +49,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         adicionarCircuitos,
         removerCircuito,
         zerarProjeto,
+        tokenReset,
       }}
     >
       {children}
