@@ -1,7 +1,7 @@
-// src/app/quadro.tsx
-import { router } from "expo-router"; // Importação nomeada correta
+import { router } from "expo-router";
 import {
   Alert,
+  Platform, // 👈 ADICIONADO: Para identificar se está no navegador ou celular
   ScrollView,
   Share,
   StyleSheet,
@@ -33,6 +33,31 @@ export default function TelaQuadro() {
   };
 
   const resultadoQDC = circuitos.length > 0 ? processarQuadroGeral() : null;
+
+  // 🛡️ CORRIGIDO: Validação de remoção compatível com Web e Celular
+  const confirmarRemocao = (id: string, nome: string) => {
+    if (Platform.OS === "web") {
+      const desejaApagar = window.confirm(
+        `Tem certeza que deseja remover o circuito "${nome}" do quadro?`,
+      );
+      if (desejaApagar) {
+        removerCircuito(id);
+      }
+    } else {
+      Alert.alert(
+        "Apagar Circuito",
+        `Tem certeza que deseja remover o circuito "${nome}" do quadro?`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Apagar",
+            style: "destructive",
+            onPress: () => removerCircuito(id),
+          },
+        ],
+      );
+    }
+  };
 
   const handleCompartilharRelatorio = async () => {
     if (!resultadoQDC) return;
@@ -67,9 +92,33 @@ export default function TelaQuadro() {
     }
   };
 
+  // 🛡️ CORRIGIDO: Validação de reset compatível com Web e Celular
   const handleZerarProjetoCompleto = () => {
-    zerarProjeto();
-    router.replace("/");
+    if (Platform.OS === "web") {
+      const desejaZerar = window.confirm(
+        "Tem certeza que deseja apagar todos os dados e iniciar um novo projeto?",
+      );
+      if (desejaZerar) {
+        zerarProjeto();
+        router.replace("/");
+      }
+    } else {
+      Alert.alert(
+        "Zerar Projeto",
+        "Tem certeza que deseja apagar todos os dados e iniciar um novo projeto?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Zerar Tudo",
+            style: "destructive",
+            onPress: () => {
+              zerarProjeto();
+              router.replace("/");
+            },
+          },
+        ],
+      );
+    }
   };
 
   const obterCorTag = (tipo: "iluminacao" | "tug" | "tue") => {
@@ -150,7 +199,9 @@ export default function TelaQuadro() {
                     </Text>
                     <TouchableOpacity
                       style={styles.botaoDeletarItem}
-                      onPress={() => removerCircuito(circuito.id)}
+                      onPress={() =>
+                        confirmarRemocao(circuito.id, circuito.nome)
+                      }
                     >
                       <Text style={styles.txtDeletarItem}>❌</Text>
                     </TouchableOpacity>

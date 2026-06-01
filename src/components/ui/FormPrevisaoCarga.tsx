@@ -1,5 +1,5 @@
 // src/components/ui/FormPrevisaoCarga.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useData } from "../../context/DataContext"; // 👈 Importa os dados globais
-import SeletorBotoes from "./SeletorBotoes";
+import { useData } from "../../context/DataContext";
+import SeletorBotoes from "./SeletorBotoes"; // 👈 ADICIONADO: Importando o seletor que estava faltando
 
 interface FormPrevisaoCargaProps {
   onCalcular: (dados: {
@@ -22,14 +22,17 @@ interface FormPrevisaoCargaProps {
 export default function FormPrevisaoCarga({
   onCalcular,
 }: FormPrevisaoCargaProps) {
-  const { tokenReset } = useData(); // 👈 Puxa o alarme de reset do projeto
+  const { tokenReset } = useData();
 
   const [nomeComodo, setNomeComodo] = useState("");
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
   const [tipoComodo, setTipoComodo] = useState<"social" | "servico">("social");
 
-  // Monitora o reset geral para esvaziar os inputs internos
+  // 🛡️ Criando referências para os campos que vão receber o foco
+  const areaRef = useRef<TextInput>(null);
+  const perimetroRef = useRef<TextInput>(null);
+
   useEffect(() => {
     setNomeComodo("");
     setArea("");
@@ -38,8 +41,9 @@ export default function FormPrevisaoCarga({
   }, [tokenReset]);
 
   const handleSubmeter = () => {
-    const numArea = parseFloat(area);
-    const numPerimetro = parseFloat(perimetro);
+    // Substituindo vírgula por ponto para evitar erros de digitação do usuário
+    const numArea = parseFloat(area.replace(",", "."));
+    const numPerimetro = parseFloat(perimetro.replace(",", "."));
 
     if (
       isNaN(numArea) ||
@@ -67,27 +71,37 @@ export default function FormPrevisaoCarga({
         placeholder="Ex: Cozinha, Quarto"
         value={nomeComodo}
         onChangeText={setNomeComodo}
+        returnKeyType="next" // 👈 Mostra botão "Próximo" no teclado do celular
+        onSubmitEditing={() => areaRef.current?.focus()} // 👈 Pula para Área
+        blurOnSubmit={false} // Evita que o teclado feche ao pular
       />
 
       <View style={styles.row}>
         <View style={styles.col}>
           <Text style={styles.label}>Área (m²)</Text>
           <TextInput
+            ref={areaRef} // 👈 Recebe a referência
             style={styles.input}
             placeholder="0.00"
             keyboardType="numeric"
             value={area}
             onChangeText={setArea}
+            returnKeyType="next"
+            onSubmitEditing={() => perimetroRef.current?.focus()} // 👈 Pula para Perímetro
+            blurOnSubmit={false}
           />
         </View>
         <View style={styles.col}>
           <Text style={styles.label}>Perímetro (m)</Text>
           <TextInput
+            ref={perimetroRef} // 👈 Recebe a referência
             style={styles.input}
             placeholder="0.00"
             keyboardType="numeric"
             value={perimetro}
             onChangeText={setPerimetro}
+            returnKeyType="done" // 👈 Mostra botão "Concluído/Enter"
+            onSubmitEditing={handleSubmeter} // 👈 Já executa o cálculo!
           />
         </View>
       </View>
