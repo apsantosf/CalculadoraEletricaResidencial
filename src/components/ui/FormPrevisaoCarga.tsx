@@ -69,7 +69,7 @@ export default function FormPrevisaoCarga({
       qtdTugs: qtdTugs,
       potenciaTugs: potTugs,
       potenciaTotalVA: potIluminacao + potTugs,
-      detalhe: `Ilum: ${potIluminacao}VA + TUGs: ${potTugs}VA (${qtdTugs} tomadas)`,
+      detalhe: `Ilum: ${potIluminacao}VA + Tomadas (TUGs): ${potTugs}VA (${qtdTugs} pontos)`,
     });
   };
 
@@ -130,7 +130,7 @@ export default function FormPrevisaoCarga({
       {calculoPrevio && (
         <View style={styles.resumoCalculo}>
           <Text style={styles.txtResumo}>
-            ⚡ Total: {calculoPrevio.potenciaTotalVA} VA
+            ⚡ Total da Carga: {calculoPrevio.potenciaTotalVA} VA
           </Text>
           <Text style={{ fontSize: 12 }}>{calculoPrevio.detalhe}</Text>
         </View>
