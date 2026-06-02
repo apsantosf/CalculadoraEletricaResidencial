@@ -18,8 +18,11 @@ export default function TelaQuadro() {
 
   const processarQuadroGeral = () => {
     const somaIlumTugVA = circuitos
-      .filter((c) => c.tipo === "iluminacao" || c.tipo === "tug")
-      .reduce((acc, curr) => acc + curr.potenciaVA, 0);
+      .filter(
+        (c) =>
+          c.tipo === "iluminacao" || c.tipo === "tug" || c.tipo === "tomada",
+      )
+      .reduce((acc, curr) => acc + (curr.potenciaVA, 0), 0);
 
     const listaWattsTue = circuitos
       .filter((c) => c.tipo === "tue" && c.potenciaWatts !== undefined)
@@ -170,8 +173,11 @@ export default function TelaQuadro() {
               📋 Circuitos Inseridos no Quadro
             </Text>
             <View style={styles.cardLista}>
-              {circuitos.map((circuito) => (
-                <View key={circuito.id} style={styles.itemCircuito}>
+              {circuitos.map((circuito, index) => (
+                <View
+                  key={circuito.id || index.toString()}
+                  style={styles.itemCircuito}
+                >
                   <View style={styles.itemEsquerda}>
                     <View
                       style={[
