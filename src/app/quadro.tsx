@@ -1,3 +1,5 @@
+// quadro.tsx versão 1.2.0
+
 import { router } from "expo-router";
 import {
   Alert,

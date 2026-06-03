@@ -1,5 +1,6 @@
-// src/components/ui/FormPrevisaoCarga.tsx
-import { useEffect, useRef, useState } from "react";
+//  FormPrevisaoCarga.tsx
+
+import { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,59 +9,65 @@ import {
   View,
 } from "react-native";
 import { useData } from "../../context/DataContext";
-import SeletorBotoes from "./SeletorBotoes"; // 👈 ADICIONADO: Importando o seletor que estava faltando
-
-interface FormPrevisaoCargaProps {
-  onCalcular: (dados: {
-    nome: string;
-    area: number;
-    perimetro: number;
-    tipo: "social" | "servico";
-  }) => void;
-}
+import {
+  calcularIluminacao,
+  calcularPotenciaTugs,
+  calcularQuantidadeTugs,
+  dimensionarCircuito,
+} from "../../utils/calculations";
+import SeletorBotoes from "./SeletorBotoes";
 
 export default function FormPrevisaoCarga({
+  onAdicionar,
   onCalcular,
-}: FormPrevisaoCargaProps) {
-  const { tokenReset } = useData();
-
+}: {
+  onAdicionar?: (data: any) => void;
+  onCalcular?: (data: any) => void;
+}) {
+  const { tensaoGeral } = useData();
   const [nomeComodo, setNomeComodo] = useState("");
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
   const [tipoComodo, setTipoComodo] = useState<"social" | "servico">("social");
+  const [resultadoPrevia, setResultadoPrevia] = useState<any>(null);
 
-  // 🛡️ Criando referências para os campos que vão receber o foco
-  const areaRef = useRef<TextInput>(null);
-  const perimetroRef = useRef<TextInput>(null);
+  const handleCalcular = () => {
+    const nArea = parseFloat(area.replace(",", "."));
+    const nPerim = parseFloat(perimetro.replace(",", "."));
+    if (isNaN(nArea) || isNaN(nPerim))
+      return alert("Preencha Área e Perímetro corretamente.");
 
-  useEffect(() => {
+    if (onCalcular) {
+      onCalcular({
+        nome: nomeComodo,
+        area: nArea,
+        perimetro: nPerim,
+        tipo: tipoComodo,
+      });
+    }
+
+    const potIlum = calcularIluminacao(nArea);
+    const resIlum = dimensionarCircuito(potIlum, tensaoGeral, "iluminacao");
+    const qtdTug = calcularQuantidadeTugs(tipoComodo, nPerim);
+    const potTug = calcularPotenciaTugs(tipoComodo, qtdTug);
+    const resTug = dimensionarCircuito(potTug, tensaoGeral, "tomada");
+
+    setResultadoPrevia({ potIlum, resIlum, qtdTug, potTug, resTug });
+  };
+
+  const handleAdicionar = () => {
+    if (onAdicionar) {
+      onAdicionar({
+        nome: nomeComodo,
+        area: parseFloat(area.replace(",", ".")),
+        perimetro: parseFloat(perimetro.replace(",", ".")),
+        tipo: tipoComodo,
+      });
+    }
     setNomeComodo("");
     setArea("");
     setPerimetro("");
-    setTipoComodo("social");
-  }, [tokenReset]);
-
-  const handleSubmeter = () => {
-    // Substituindo vírgula por ponto para evitar erros de digitação do usuário
-    const numArea = parseFloat(area.replace(",", "."));
-    const numPerimetro = parseFloat(perimetro.replace(",", "."));
-
-    if (
-      isNaN(numArea) ||
-      isNaN(numPerimetro) ||
-      numArea <= 0 ||
-      numPerimetro <= 0
-    ) {
-      alert("Por favor, insira valores válidos para área e perímetro.");
-      return;
-    }
-
-    onCalcular({
-      nome: nomeComodo || "Cômodo Geral",
-      area: numArea,
-      perimetro: numPerimetro,
-      tipo: tipoComodo,
-    });
+    setResultadoPrevia(null);
   };
 
   return (
@@ -68,97 +75,99 @@ export default function FormPrevisaoCarga({
       <Text style={styles.label}>Nome do Cômodo</Text>
       <TextInput
         style={styles.input}
-        placeholder="Ex: Cozinha, Quarto"
         value={nomeComodo}
         onChangeText={setNomeComodo}
-        returnKeyType="next" // 👈 Mostra botão "Próximo" no teclado do celular
-        onSubmitEditing={() => areaRef.current?.focus()} // 👈 Pula para Área
-        blurOnSubmit={false} // Evita que o teclado feche ao pular
       />
-
       <View style={styles.row}>
         <View style={styles.col}>
-          <Text style={styles.label}>Área (m²)</Text>
+          <Text style={styles.label}>Área</Text>
           <TextInput
-            ref={areaRef} // 👈 Recebe a referência
             style={styles.input}
-            placeholder="0.00"
             keyboardType="numeric"
             value={area}
             onChangeText={setArea}
-            returnKeyType="next"
-            onSubmitEditing={() => perimetroRef.current?.focus()} // 👈 Pula para Perímetro
-            blurOnSubmit={false}
           />
         </View>
         <View style={styles.col}>
-          <Text style={styles.label}>Perímetro (m)</Text>
+          <Text style={styles.label}>Perímetro</Text>
           <TextInput
-            ref={perimetroRef} // 👈 Recebe a referência
             style={styles.input}
-            placeholder="0.00"
             keyboardType="numeric"
             value={perimetro}
             onChangeText={setPerimetro}
-            returnKeyType="done" // 👈 Mostra botão "Concluído/Enter"
-            onSubmitEditing={handleSubmeter} // 👈 Já executa o cálculo!
           />
         </View>
       </View>
-
       <SeletorBotoes
-        label="Tipo do Cômodo"
+        label="Tipo"
         valorSelecionado={tipoComodo}
         onSelecionar={setTipoComodo}
         opcoes={[
-          { id: "social", label: "Sala / Quarto" },
-          { id: "servico", label: "Cozinha / Serviço" },
+          { id: "social", label: "Sala/Quarto" },
+          { id: "servico", label: "Cozinha/Serviço" },
         ]}
       />
-
-      <TouchableOpacity style={styles.botaoCalcular} onPress={handleSubmeter}>
-        <Text style={styles.textoBotaoCalcular}>
-          Calcular e Adicionar Cômodo
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.containerBotoes}>
+        <TouchableOpacity style={styles.botaoCalcular} onPress={handleCalcular}>
+          <Text style={styles.textoBotao}>Calcular</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.botaoAdicionar}
+          onPress={handleAdicionar}
+        >
+          <Text style={styles.textoBotao}>Adicionar Cômodo</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   cardForm: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 12,
-    elevation: 2,
     marginBottom: 10,
-    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
+    elevation: 2,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#4b5563",
-    marginBottom: 6,
-    marginTop: 6,
-  },
+  label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 4 },
   input: {
     backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
     padding: 10,
-    fontSize: 16,
-    color: "#1f2937",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
-  botaoCalcular: {
-    backgroundColor: "#10b981",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
+  containerBotoes: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 16,
   },
-  textoBotaoCalcular: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
+  botaoCalcular: {
+    backgroundColor: "#2563eb",
+    padding: 12,
+    borderRadius: 8,
+    flex: 0.48,
+    alignItems: "center",
+  },
+  botaoAdicionar: {
+    backgroundColor: "#059669",
+    padding: 12,
+    borderRadius: 8,
+    flex: 0.48,
+    alignItems: "center",
+  },
+  textoBotao: { color: "#fff", fontWeight: "bold" },
+  cardResultado: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: "#f0fdf4",
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#059669",
+  },
+  tituloResultado: { fontWeight: "bold", color: "#065f46", marginBottom: 6 },
 });

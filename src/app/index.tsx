@@ -1,5 +1,4 @@
-// src/app/index.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
 import FormPrevisaoCarga from "../components/ui/FormPrevisaoCarga";
@@ -12,96 +11,68 @@ import {
   dimensionarCircuito,
 } from "../utils/calculations";
 
-// 📦 Importando a versão automaticamente a partir do package.json na raiz do projeto
-import { version } from "../../package.json";
-
 export default function TelaComodos() {
-  const {
-    tensaoGeral,
-    setTensaoGeral,
-    adicionarCircuitos,
-    circuitos,
-    tokenReset,
-  } = useData();
-  const [resultado, setResultado] = useState<any>(null);
-
-  // Limpa o card de resultado local caso ocorra um reset no projeto
-  useEffect(() => {
-    setResultado(null);
-  }, [tokenReset]);
+  const { tensaoGeral, setTensaoGeral, adicionarCircuitos, circuitos } =
+    useData();
+  const [resultado, setResultado] = useState<any>(null); // Estado para o Card Verde
 
   const comodosAdicionados = circuitos.filter(
     (c) => c.tipo === "iluminacao" || c.tipo === "tug",
   );
 
-  const handleCalcularComodo = (dados: {
-    nome: string;
-    area: number;
-    perimetro: number;
-    tipo: "social" | "servico";
-  }) => {
+  // Ação exclusiva do botão CALCULAR (Exibe o Card Verde)
+  const handleCalcularOficial = (dados: any) => {
     const potIluminacao = calcularIluminacao(dados.area);
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
     const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
-
-    const circuitoIlum = dimensionarCircuito(
+    const circIlum = dimensionarCircuito(
       potIluminacao,
       tensaoGeral,
       "iluminacao",
     );
-    const circuitoTomadas = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
-
-    const nomeFinal =
-      dados.nome || `Cômodo ${comodosAdicionados.length / 2 + 1}`;
+    const circTug = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
 
     setResultado({
-      nome: nomeFinal,
-      tipo: dados.tipo,
-      perimetro: dados.perimetro,
-      iluminacao: { potencia: potIluminacao, ...circuitoIlum },
-      tomadas: { quantidade: qtdTugs, potencia: potTugs, ...circuitoTomadas },
+      nome: dados.nome || "Cômodo",
+      iluminacao: { potencia: potIluminacao, ...circIlum },
+      tomadas: { quantidade: qtdTugs, potencia: potTugs, ...circTug },
     });
+  };
+
+  // Ação exclusiva do botão ADICIONAR (Salva e limpa o Card Verde)
+  const handleAdicionarAoQuadro = (dados: any) => {
+    const potIluminacao = calcularIluminacao(dados.area);
+    const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
+    const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
 
     adicionarCircuitos([
       {
         id: Math.random().toString(),
-        nome: `${nomeFinal} (Luz)`,
+        nome: `${dados.nome || "Cômodo"} (Luz)`,
         tipo: "iluminacao",
         potenciaVA: potIluminacao,
       },
       {
         id: Math.random().toString(),
-        nome: `${nomeFinal} (TUG)`,
+        nome: `${dados.nome || "Cômodo"} (TUG)`,
         tipo: "tug",
         potenciaVA: potTugs,
         detalhe: `(${qtdTugs} tomadas)`,
       },
     ]);
+
+    // GARANTIA: Limpa o card verde para que ele não apareça ao clicar em adicionar
+    setResultado(null);
   };
 
   return (
     <View style={styles.wrapperWeb}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={true}
-      >
-        {/* Identificação Didática da Norma Técnico */}
-        <View style={styles.cardNorma}>
-          <Text style={styles.txtNormaMain}>
-            Dimensionamento Baseado na Norma
-          </Text>
-          <Text style={styles.txtNormaDestaque}>NBR 5410:2004</Text>
-          <Text style={styles.txtNormaSub}>
-            Instalações Elétricas de Baixa Tensão
-          </Text>
-        </View>
-
+      <ScrollView style={styles.container}>
         <View style={styles.cardConfig}>
           <SeletorBotoes
-            label="Tensão Geral da Instalação"
+            label="Tensão Geral"
             valorSelecionado={tensaoGeral}
-            onSelecionar={(val) => setTensaoGeral(val)}
+            onSelecionar={setTensaoGeral}
             opcoes={[
               { id: 127, label: "127 V" },
               { id: 220, label: "220 V" },
@@ -109,63 +80,32 @@ export default function TelaComodos() {
           />
         </View>
 
-        <FormPrevisaoCarga onCalcular={handleCalcularComodo} />
+        <FormPrevisaoCarga
+          onCalcular={handleCalcularOficial}
+          onAdicionar={handleAdicionarAoQuadro}
+        />
 
+        {/* Card Verde oficial só aparece se 'resultado' estiver preenchido */}
         {resultado && (
           <View style={styles.resultadoContainer}>
-            <Text style={styles.txtFeedback}>
-              ✅ Salvo no Quadro: {resultado.nome}
-            </Text>
-
+            <Text style={styles.txtFeedback}>✅ {resultado.nome}</Text>
             <CardResultado
               titulo="💡 Iluminação"
               corBorda="#208AEF"
               items={[
                 {
-                  label: "Potência Mínima Exigida",
+                  label: "Potência",
                   valor: `${resultado.iluminacao.potencia} VA`,
-                },
-                {
-                  label: "Cabo Ideal",
-                  valor: `${resultado.iluminacao.secaoCabo} mm²`,
-                  corValor: "green",
-                },
-                {
-                  label: "Disjuntor",
-                  valor: `${resultado.iluminacao.disjuntor} A`,
-                  corValor: "red",
                 },
               ]}
             />
-
             <CardResultado
-              titulo="🔌 Tomadas Gerais (TUG)"
+              titulo="🔌 Tomadas"
               corBorda="#FF9500"
               items={[
                 {
-                  label: "Mínimo Obrigatório por Norma",
-                  valor: `${resultado.tomadas.quantidade} tomada(s)`,
-                },
-                {
-                  label: "Critério de Fração Aplicado",
-                  valor:
-                    resultado.tipo === "servico"
-                      ? `1 tomada a cada 3,5m de perímetro (${resultado.perimetro}m)`
-                      : `1 tomada a cada 5,0m de perímetro (${resultado.perimetro}m)`,
-                },
-                {
-                  label: "Potência de Carga do Circuito",
-                  valor: `${resultado.tomadas.potencia} VA`,
-                },
-                {
-                  label: "Cabo Mínimo da Linha",
-                  valor: `${resultado.tomadas.secaoCabo} mm²`,
-                  corValor: "green",
-                },
-                {
-                  label: "Disjuntor de Proteção",
-                  valor: `${resultado.tomadas.disjuntor} A`,
-                  corValor: "red",
+                  label: "Qtd",
+                  valor: `${resultado.tomadas.quantidade} unid.`,
                 },
               ]}
             />
@@ -175,93 +115,42 @@ export default function TelaComodos() {
         {comodosAdicionados.length > 0 && (
           <View style={styles.resumoContainer}>
             <Text style={styles.txtResumoTitulo}>
-              🏠 Cômodos na Memória do Quadro
-            </Text>
-            <Text style={styles.txtResumoSub}>
-              Total cadastrado: {comodosAdicionados.length / 2} cômodo(s)
+              Total de cômodos cadastrados: {comodosAdicionados.length / 2}
             </Text>
           </View>
         )}
       </ScrollView>
-
-      {/* 🏷️ Rodapé fixado abaixo do ScrollView */}
-      <View style={styles.containerRodape}>
-        <Text style={styles.txtVersaoApp}>Versão {version}</Text>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapperWeb: {
-    flex: 1,
-    backgroundColor: "#f3f4f6",
-    width: "100%",
-    maxHeight: "100vh",
-  },
+  wrapperWeb: { flex: 1, backgroundColor: "#f3f4f6" },
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
     padding: 16,
     maxWidth: 450,
     width: "100%",
     alignSelf: "center",
   },
-  cardNorma: {
-    backgroundColor: "#e0f2fe",
-    padding: 12,
-    borderRadius: 12,
-    borderLeftWidth: 5,
-    borderLeftColor: "#208AEF",
-    marginBottom: 14,
-    alignItems: "center",
-  },
-  txtNormaMain: { fontSize: 13, color: "#0369a1", fontWeight: "600" },
-  txtNormaDestaque: {
-    fontSize: 18,
-    color: "#0284c7",
-    fontWeight: "bold",
-    marginVertical: 2,
-  },
-  txtNormaSub: { fontSize: 11, color: "#0c4a6e", fontWeight: "400" },
   cardConfig: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 12,
     marginBottom: 14,
-    elevation: 1,
-  },
-  resultadoContainer: { marginVertical: 10 },
-  txtFeedback: {
-    fontSize: 14,
-    color: "#10b981",
-    fontWeight: "bold",
-    marginBottom: 8,
-    marginLeft: 4,
   },
   resumoContainer: {
     marginTop: 14,
     padding: 12,
     backgroundColor: "#e5e7eb",
     borderRadius: 10,
-    marginBottom: 10,
   },
   txtResumoTitulo: { fontSize: 14, fontWeight: "bold", color: "#374151" },
-  txtResumoSub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
-  containerRodape: {
-    width: "100%",
-    maxWidth: 450,
-    alignSelf: "center",
-    backgroundColor: "#ffffff", // Mudado para branco para destacar a barra do rodapé
-    paddingVertical: 10,
-    paddingBottom: 25, // Adicionado espaço para não cobrir com o menu de abas
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
-  },
-  txtVersaoApp: {
-    fontSize: 12, // Aumentado levemente o tamanho
-    color: "#4b5563", // Cor alterada para cinza escuro de fácil leitura
-    textAlign: "center",
-    fontWeight: "700", // Deixado em negrito sutil para destacar
+  resultadoContainer: { marginVertical: 10 },
+  txtFeedback: {
+    fontSize: 14,
+    color: "#10b981",
+    fontWeight: "bold",
+    marginBottom: 8,
   },
 });
