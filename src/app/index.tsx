@@ -14,13 +14,11 @@ import {
 export default function TelaComodos() {
   const { tensaoGeral, setTensaoGeral, adicionarCircuitos, circuitos } =
     useData();
-  const [resultado, setResultado] = useState<any>(null); // Estado para o Card Verde
+  const [resultado, setResultado] = useState<any>(null);
 
-  const comodosAdicionados = circuitos.filter(
-    (c) => c.tipo === "iluminacao" || c.tipo === "tug",
-  );
+  // Filtra apenas o tipo iluminação para contar cômodos corretamente
+  const totalComodos = circuitos.filter((c) => c.tipo === "iluminacao").length;
 
-  // Ação exclusiva do botão CALCULAR (Exibe o Card Verde)
   const handleCalcularOficial = (dados: any) => {
     const potIluminacao = calcularIluminacao(dados.area);
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
@@ -39,29 +37,35 @@ export default function TelaComodos() {
     });
   };
 
-  // Ação exclusiva do botão ADICIONAR (Salva e limpa o Card Verde)
   const handleAdicionarAoQuadro = (dados: any) => {
     const potIluminacao = calcularIluminacao(dados.area);
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
     const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
 
+    const circIlum = dimensionarCircuito(
+      potIluminacao,
+      tensaoGeral,
+      "iluminacao",
+    );
+    const circTug = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
+
     adicionarCircuitos([
       {
         id: Math.random().toString(),
-        nome: `${dados.nome || "Cômodo"} (Luz)`,
+        nome: `${dados.nome} (Luz)`,
         tipo: "iluminacao",
         potenciaVA: potIluminacao,
+        disjuntor: circIlum.disjuntor,
       },
       {
         id: Math.random().toString(),
-        nome: `${dados.nome || "Cômodo"} (TUG)`,
+        nome: `${dados.nome} (TUG)`,
         tipo: "tug",
         potenciaVA: potTugs,
-        detalhe: `(${qtdTugs} tomadas)`,
+        detalhe: `${qtdTugs} tomadas`,
+        disjuntor: circTug.disjuntor,
       },
     ]);
-
-    // GARANTIA: Limpa o card verde para que ele não apareça ao clicar em adicionar
     setResultado(null);
   };
 
@@ -85,7 +89,6 @@ export default function TelaComodos() {
           onAdicionar={handleAdicionarAoQuadro}
         />
 
-        {/* Card Verde oficial só aparece se 'resultado' estiver preenchido */}
         {resultado && (
           <View style={styles.resultadoContainer}>
             <Text style={styles.txtFeedback}>✅ {resultado.nome}</Text>
@@ -112,10 +115,10 @@ export default function TelaComodos() {
           </View>
         )}
 
-        {comodosAdicionados.length > 0 && (
+        {totalComodos > 0 && (
           <View style={styles.resumoContainer}>
             <Text style={styles.txtResumoTitulo}>
-              Total de cômodos cadastrados: {comodosAdicionados.length / 2}
+              Total de cômodos cadastrados: {totalComodos}
             </Text>
           </View>
         )}

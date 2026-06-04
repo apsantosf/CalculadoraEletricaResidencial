@@ -1,4 +1,4 @@
-// src/app/tue.tsx
+//  c/app/tue.tsx
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
@@ -7,40 +7,46 @@ import { useData } from "../context/DataContext";
 import { dimensionarTUE } from "../utils/calculations";
 
 export default function TelaTues() {
-  const { adicionarCircuitos, tokenReset } = useData();
+  const { adicionarCircuitos, tokenReset, circuitos } = useData();
   const [resultadoTue, setResultadoTue] = useState<any>(null);
 
-  // Escuta o reset do quadro para apagar os cards de resultado locais automaticamente
+  // Filtra os TUEs já adicionados ao quadro
+  const tuesCadastrados = circuitos.filter((c) => c.tipo === "tue");
+
   useEffect(() => {
     setResultadoTue(null);
   }, [tokenReset]);
 
   const handleCalcularTue = (dados: {
-    watts: number;
-    tipo: "chuveiro" | "arConditioned";
-    tensao: 127 | 220;
+    nome: string;
+    potencia: number;
+    tensao: number;
   }) => {
-    const fp = dados.tipo === "chuveiro" ? 1.0 : 0.85;
-    const dimensionamento = dimensionarTUE(dados.watts, dados.tensao, fp);
-    const nomeEquipamento =
-      dados.tipo === "chuveiro" ? "Chuveiro" : "Ar-Condicionado";
+    const fp = dados.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
+    const dimensionamento = dimensionarTUE(dados.potencia, dados.tensao, fp);
 
     setResultadoTue({
-      nome: nomeEquipamento,
-      watts: dados.watts,
+      nome: dados.nome,
+      potencia: dados.potencia,
       tensao: dados.tensao,
       ...dimensionamento,
     });
+  };
+
+  const handleAdicionarTue = () => {
+    if (!resultadoTue) return;
 
     adicionarCircuitos([
       {
         id: Math.random().toString(),
-        nome: `${nomeEquipamento} (${dados.watts}W - ${dados.tensao}V)`,
+        nome: `${resultadoTue.nome} (${resultadoTue.potencia}W - ${resultadoTue.tensao}V)`,
         tipo: "tue",
-        potenciaVA: dimensionamento.potenciaVA,
-        potenciaWatts: dados.watts,
+        potenciaVA: resultadoTue.potenciaVA,
+        potenciaWatts: resultadoTue.potencia,
+        disjuntor: resultadoTue.disjuntor,
       },
     ]);
+    setResultadoTue(null);
   };
 
   return (
@@ -48,23 +54,20 @@ export default function TelaTues() {
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 80 }}
-        showsVerticalScrollIndicator={true}
       >
-        <FormTue onCalcular={handleCalcularTue} />
+        <FormTue
+          onCalcular={handleCalcularTue}
+          onAdicionar={handleAdicionarTue}
+        />
 
         {resultadoTue && (
           <View style={styles.resultadoContainer}>
-            <Text style={styles.txtFeedback}>
-              ✅ Salvo no Quadro: {resultadoTue.nome}
-            </Text>
+            <Text style={styles.txtFeedback}>✅ Pronto para Adicionar!</Text>
             <CardResultado
-              titulo={`⚡ Circuito Dedicado - ${resultadoTue.nome} (${resultadoTue.tensao}V)`}
+              titulo={`⚡ Circuito Dedicado - ${resultadoTue.nome}`}
               corBorda="#7c3aed"
               items={[
-                {
-                  label: "Potência em VA",
-                  valor: `${resultadoTue.potenciaVA} VA`,
-                },
+                { label: "Potência", valor: `${resultadoTue.potenciaVA} VA` },
                 {
                   label: "Corrente",
                   valor: `${resultadoTue.correnteProjeto} A`,
@@ -81,6 +84,15 @@ export default function TelaTues() {
                 },
               ]}
             />
+          </View>
+        )}
+
+        {/* CONTADOR AQUI */}
+        {tuesCadastrados.length > 0 && (
+          <View style={styles.resumoContainer}>
+            <Text style={styles.txtResumoTitulo}>
+              Total de dispositivos cadastrados: {tuesCadastrados.length}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -104,6 +116,13 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   resultadoContainer: { marginVertical: 10 },
+  resumoContainer: {
+    marginTop: 14,
+    padding: 12,
+    backgroundColor: "#e5e7eb",
+    borderRadius: 10,
+  },
+  txtResumoTitulo: { fontSize: 14, fontWeight: "bold", color: "#374151" },
   txtFeedback: {
     fontSize: 14,
     color: "#7c3aed",

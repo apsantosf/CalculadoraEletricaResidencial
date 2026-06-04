@@ -1,3 +1,6 @@
+// FormPrevisaoCarga.tsx
+
+import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
 import {
   StyleSheet,
@@ -7,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useData } from "../../context/DataContext";
-import SeletorBotoes from "./SeletorBotoes";
+import { LISTA_COMODOS } from "../../utils/listaComodos";
 
 export default function FormPrevisaoCarga({
   onAdicionar,
@@ -17,12 +20,9 @@ export default function FormPrevisaoCarga({
   onCalcular?: (data: any) => void;
 }) {
   const { tensaoGeral } = useData();
-  const [nomeComodo, setNomeComodo] = useState("");
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
-  const [tipoComodo, setTipoComodo] = useState<"social" | "servico">("social");
-
-  // ESTADO DA TRAVA: Começa como false (bloqueado)
+  const [ambiente, setAmbiente] = useState(LISTA_COMODOS[0]);
   const [calcRealizado, setCalcRealizado] = useState(false);
 
   const handleCalcular = () => {
@@ -31,14 +31,14 @@ export default function FormPrevisaoCarga({
     if (isNaN(nArea) || isNaN(nPerim))
       return alert("Preencha Área e Perímetro corretamente.");
 
-    setCalcRealizado(true); // LIBERA o botão Adicionar
+    setCalcRealizado(true);
 
     if (onCalcular) {
       onCalcular({
-        nome: nomeComodo,
+        nome: ambiente.nome,
+        tipo: ambiente.tipo,
         area: nArea,
         perimetro: nPerim,
-        tipo: tipoComodo,
       });
     }
   };
@@ -46,31 +46,43 @@ export default function FormPrevisaoCarga({
   const handleAdicionar = () => {
     if (onAdicionar) {
       onAdicionar({
-        nome: nomeComodo,
+        nome: ambiente.nome,
+        tipo: ambiente.tipo,
         area: parseFloat(area.replace(",", ".")),
         perimetro: parseFloat(perimetro.replace(",", ".")),
-        tipo: tipoComodo,
       });
     }
-
-    // RESET: Limpa os campos e BLOQUEIA o botão novamente
     setCalcRealizado(false);
-    setNomeComodo("");
     setArea("");
     setPerimetro("");
   };
 
   return (
     <View style={styles.cardForm}>
-      <Text style={styles.label}>Nome do Cômodo</Text>
-      <TextInput
-        style={styles.input}
-        value={nomeComodo}
-        onChangeText={setNomeComodo}
-      />
+      <Text style={styles.label}>Selecione o Ambiente</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={ambiente.nome}
+          onValueChange={(itemValue) => {
+            const ambienteSelecionado = LISTA_COMODOS.find(
+              (c) => c.nome === itemValue,
+            );
+            if (ambienteSelecionado) {
+              setAmbiente(ambienteSelecionado);
+              setCalcRealizado(false); // Reseta o botão de adicionar ao mudar o cômodo
+            }
+          }}
+          style={styles.picker}
+        >
+          {LISTA_COMODOS.map((item, index) => (
+            <Picker.Item key={index} label={item.nome} value={item.nome} />
+          ))}
+        </Picker>
+      </View>
+
       <View style={styles.row}>
         <View style={styles.col}>
-          <Text style={styles.label}>Área</Text>
+          <Text style={styles.label}>Área (m²)</Text>
           <TextInput
             style={styles.input}
             keyboardType="numeric"
@@ -79,7 +91,7 @@ export default function FormPrevisaoCarga({
           />
         </View>
         <View style={styles.col}>
-          <Text style={styles.label}>Perímetro</Text>
+          <Text style={styles.label}>Perímetro (m)</Text>
           <TextInput
             style={styles.input}
             keyboardType="numeric"
@@ -88,29 +100,19 @@ export default function FormPrevisaoCarga({
           />
         </View>
       </View>
-      <SeletorBotoes
-        label="Tipo"
-        valorSelecionado={tipoComodo}
-        onSelecionar={setTipoComodo}
-        opcoes={[
-          { id: "social", label: "Sala/Quarto" },
-          { id: "servico", label: "Cozinha/Serviço" },
-        ]}
-      />
 
       <View style={styles.containerBotoes}>
         <TouchableOpacity style={styles.botaoCalcular} onPress={handleCalcular}>
           <Text style={styles.textoBotao}>Calcular</Text>
         </TouchableOpacity>
 
-        {/* BOTÃO ADICIONAR COM TRAVA */}
         <TouchableOpacity
           style={[
             styles.botaoAdicionar,
             !calcRealizado && { backgroundColor: "#9ca3af" },
-          ]} // Fica cinza se bloqueado
+          ]}
           onPress={handleAdicionar}
-          disabled={!calcRealizado} // Trava o clique se não calculou
+          disabled={!calcRealizado}
         >
           <Text style={styles.textoBotao}>Adicionar Cômodo</Text>
         </TouchableOpacity>
@@ -135,6 +137,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 8,
+  },
+  pickerContainer: {
+    backgroundColor: "#fefce8", // Amarelo bem clarinho
+    borderWidth: 2,
+    borderColor: "#2563eb", // Azul definido
+    borderRadius: 8,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  picker: {
+    height: 50,
+    color: "#2563eb",
+    backgroundColor: "#fefce8", // Aplicamos a cor aqui também para forçar o preenchimento
   },
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
