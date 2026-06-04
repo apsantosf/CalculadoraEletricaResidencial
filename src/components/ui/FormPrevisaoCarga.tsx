@@ -1,5 +1,3 @@
-//  FormPrevisaoCarga.tsx
-
 import { useState } from "react";
 import {
   StyleSheet,
@@ -9,12 +7,6 @@ import {
   View,
 } from "react-native";
 import { useData } from "../../context/DataContext";
-import {
-  calcularIluminacao,
-  calcularPotenciaTugs,
-  calcularQuantidadeTugs,
-  dimensionarCircuito,
-} from "../../utils/calculations";
 import SeletorBotoes from "./SeletorBotoes";
 
 export default function FormPrevisaoCarga({
@@ -29,13 +21,17 @@ export default function FormPrevisaoCarga({
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
   const [tipoComodo, setTipoComodo] = useState<"social" | "servico">("social");
-  const [resultadoPrevia, setResultadoPrevia] = useState<any>(null);
+
+  // ESTADO DA TRAVA: Começa como false (bloqueado)
+  const [calcRealizado, setCalcRealizado] = useState(false);
 
   const handleCalcular = () => {
     const nArea = parseFloat(area.replace(",", "."));
     const nPerim = parseFloat(perimetro.replace(",", "."));
     if (isNaN(nArea) || isNaN(nPerim))
       return alert("Preencha Área e Perímetro corretamente.");
+
+    setCalcRealizado(true); // LIBERA o botão Adicionar
 
     if (onCalcular) {
       onCalcular({
@@ -45,14 +41,6 @@ export default function FormPrevisaoCarga({
         tipo: tipoComodo,
       });
     }
-
-    const potIlum = calcularIluminacao(nArea);
-    const resIlum = dimensionarCircuito(potIlum, tensaoGeral, "iluminacao");
-    const qtdTug = calcularQuantidadeTugs(tipoComodo, nPerim);
-    const potTug = calcularPotenciaTugs(tipoComodo, qtdTug);
-    const resTug = dimensionarCircuito(potTug, tensaoGeral, "tomada");
-
-    setResultadoPrevia({ potIlum, resIlum, qtdTug, potTug, resTug });
   };
 
   const handleAdicionar = () => {
@@ -64,10 +52,12 @@ export default function FormPrevisaoCarga({
         tipo: tipoComodo,
       });
     }
+
+    // RESET: Limpa os campos e BLOQUEIA o botão novamente
+    setCalcRealizado(false);
     setNomeComodo("");
     setArea("");
     setPerimetro("");
-    setResultadoPrevia(null);
   };
 
   return (
@@ -107,13 +97,20 @@ export default function FormPrevisaoCarga({
           { id: "servico", label: "Cozinha/Serviço" },
         ]}
       />
+
       <View style={styles.containerBotoes}>
         <TouchableOpacity style={styles.botaoCalcular} onPress={handleCalcular}>
           <Text style={styles.textoBotao}>Calcular</Text>
         </TouchableOpacity>
+
+        {/* BOTÃO ADICIONAR COM TRAVA */}
         <TouchableOpacity
-          style={styles.botaoAdicionar}
+          style={[
+            styles.botaoAdicionar,
+            !calcRealizado && { backgroundColor: "#9ca3af" },
+          ]} // Fica cinza se bloqueado
           onPress={handleAdicionar}
+          disabled={!calcRealizado} // Trava o clique se não calculou
         >
           <Text style={styles.textoBotao}>Adicionar Cômodo</Text>
         </TouchableOpacity>
@@ -161,13 +158,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   textoBotao: { color: "#fff", fontWeight: "bold" },
-  cardResultado: {
-    marginTop: 15,
-    padding: 12,
-    backgroundColor: "#f0fdf4",
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#059669",
-  },
-  tituloResultado: { fontWeight: "bold", color: "#065f46", marginBottom: 6 },
 });
