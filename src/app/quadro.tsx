@@ -42,7 +42,13 @@ export default function TelaQuadro() {
       texto += `• ${c.nome}${detalhe}: ${c.potenciaWatts || c.potenciaVA} ${c.potenciaWatts ? "W" : "VA"}${disj}\n`;
     });
 
-    texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
+    texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\n`;
+    texto += `Potência Total: ${resultadoQDC.potenciaTotalVA} VA\n`;
+    texto += `Corrente Geral: ${resultadoQDC.correnteGeral} A\n`;
+    texto += `Cabo Alimentador (Medidor ➔ QDC): ${resultadoQDC.caboGeral} mm²\n`;
+    texto += `Disjuntor Geral: ${resultadoQDC.disjuntorGeral} A\n\n`;
+
+    texto += `⚠️ NOTA TÉCNICA:\nO ramal de entrada (Poste ➔ Medidor) deve seguir o padrão exigido pela concessionária de energia local.`;
 
     await Share.share({ message: texto });
   };
@@ -91,7 +97,7 @@ export default function TelaQuadro() {
                 <Text style={styles.valor}>{resultadoQDC.correnteGeral} A</Text>
               </View>
               <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Cabo Principal:</Text>
+                <Text style={styles.label}>Cabo Alimentador (Medidor -> QDC):</Text>
                 <Text style={styles.valorDestaque}>
                   {resultadoQDC.caboGeral} mm²
                 </Text>
@@ -102,6 +108,9 @@ export default function TelaQuadro() {
                   {resultadoQDC.disjuntorGeral} A
                 </Text>
               </View>
+              <Text style={styles.notaAviso}>
+                *O ramal de ligação (Rua) obedece ao padrão da concessionária.
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -178,6 +187,13 @@ const styles = StyleSheet.create({
   label: { color: "#ffffff", fontSize: 14 },
   valor: { color: "#ffffff", fontWeight: "600" },
   valorDestaque: { color: "#fde047", fontWeight: "bold", fontSize: 14 },
+  notaAviso: {
+    color: "#a7f3d0",
+    fontSize: 11,
+    marginTop: 14,
+    fontStyle: "italic",
+    textAlign: "center",
+  },
   botaoExportar: {
     backgroundColor: "#10b981",
     padding: 14,
