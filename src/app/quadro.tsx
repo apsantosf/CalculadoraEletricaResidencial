@@ -1,6 +1,8 @@
 // src/app/quadro.tsx
 
+import { useRouter } from "expo-router";
 import {
+  Alert,
   ScrollView,
   Share,
   StyleSheet,
@@ -13,6 +15,32 @@ import { calcularAlimentadorGeral } from "../utils/calculations";
 
 export default function TelaQuadro() {
   const { circuitos, tensaoGeral, removerCircuito, zerarProjeto } = useData();
+  const router = useRouter();
+
+  const confirmarNovoProjeto = () => {
+    const executarReset = () => {
+      zerarProjeto();
+      router.replace("/");
+    };
+
+    // Verificação para Web vs Mobile
+    if (typeof window !== "undefined" && typeof window.confirm === "function") {
+      // Navegador Web
+      if (
+        window.confirm(
+          "Tem certeza? Todo o projeto atual será apagado e não poderá ser recuperado.",
+        )
+      ) {
+        executarReset();
+      }
+    } else {
+      // Mobile
+      Alert.alert("Atenção", "Deseja reiniciar o projeto?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sim", onPress: executarReset },
+      ]);
+    }
+  };
 
   const processarQuadroGeral = () => {
     const somaIlumTugVA = circuitos
@@ -145,7 +173,7 @@ export default function TelaQuadro() {
 
             <TouchableOpacity
               style={styles.botaoNovoProjeto}
-              onPress={zerarProjeto}
+              onPress={confirmarNovoProjeto}
             >
               <Text style={styles.textoBotaoLimpar}>
                 ■ Iniciar Novo Projeto
