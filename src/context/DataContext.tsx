@@ -1,15 +1,20 @@
 // src/context/DataContext.tsx
+import { dimensionarCircuito, dimensionarTUE } from "@/utils/calculations";
 import React, { createContext, useContext, useState } from "react";
 
+// 1. Definição da estrutura do circuito
 export interface ItemCircuito {
   id: string;
   nome: string;
   tipo: "iluminacao" | "tug" | "tue";
   potenciaVA: number;
   potenciaWatts?: number;
-  detalhe?: string; // 👈 Nova propriedade para guardar observações como a quantidade de tomadas
+  detalhe?: string;
+  disjuntor?: number;
+  bitola?: number;
 }
 
+// 2. Definição do tipo do Contexto
 interface DataContextType {
   tensaoGeral: 127 | 220;
   setTensaoGeral: (tensao: 127 | 220) => void;
@@ -20,6 +25,7 @@ interface DataContextType {
   tokenReset: number;
 }
 
+// 3. A CRIAÇÃO DO CONTEXTO (Esta linha que estava faltando no seu arquivo)
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -27,12 +33,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [circuitos, setCircuitos] = useState<ItemCircuito[]>([]);
   const [tokenReset, setTokenReset] = useState<number>(0);
 
-  const adicionarCircuitos = (novos: ItemCircuito[]) => {
-    setCircuitos((prev) => [...prev, ...novos]);
-  };
-
   const removerCircuito = (id: string) => {
     setCircuitos((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const adicionarCircuitos = (novos: ItemCircuito[]) => {
+    const circuitosCalculados = novos.map((circ) => {
+      const calculo =
+        circ.tipo === "tue"
+          ? dimensionarTUE(circ.potenciaWatts || 0, tensaoGeral)
+          : dimensionarCircuito(
+              circ.potenciaVA,
+              tensaoGeral,
+              circ.tipo === "iluminacao" ? "iluminacao" : "tomada",
+            );
+
+      return {
+        ...circ,
+        bitola: calculo.secaoCabo,
+        disjuntor: calculo.disjuntor,
+      };
+    });
+
+    setCircuitos((prev) => [...prev, ...circuitosCalculados]);
   };
 
   const zerarProjeto = () => {

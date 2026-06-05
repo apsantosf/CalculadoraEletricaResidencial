@@ -1,3 +1,5 @@
+// src/app/quadro.tsx
+
 import {
   ScrollView,
   Share,
@@ -39,7 +41,8 @@ export default function TelaQuadro() {
     circuitos.forEach((c) => {
       const detalhe = c.detalhe ? ` (${c.detalhe})` : "";
       const disj = c.disjuntor ? ` | Disj: ${c.disjuntor}A` : "";
-      texto += `• ${c.nome}${detalhe}: ${c.potenciaWatts || c.potenciaVA} ${c.potenciaWatts ? "W" : "VA"}${disj}\n`;
+      const fio = c.bitola ? ` | Fio: ${c.bitola} mm²` : "";
+      texto += `• ${c.nome}${detalhe}: ${c.potenciaWatts || c.potenciaVA} ${c.potenciaWatts ? "W" : "VA"}${disj}${fio}\n`;
     });
 
     texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\n`;
@@ -60,7 +63,7 @@ export default function TelaQuadro() {
         contentContainerStyle={{ paddingBottom: 80 }}
       >
         {resultadoQDC ? (
-          <View style={styles.quadroContainer}>
+          <View>
             <Text style={styles.subtitulo}>📋 RELAÇÃO DE CIRCUITOS</Text>
             <View style={styles.cardLista}>
               {circuitos.map((c) => (
@@ -69,11 +72,31 @@ export default function TelaQuadro() {
                     <Text style={styles.nomeCircuito}>
                       {c.nome} {c.detalhe ? `(${c.detalhe})` : ""}
                     </Text>
-                    {c.disjuntor && (
-                      <Text style={styles.textoDisjuntor}>
-                        Disjuntor: {c.disjuntor}A
-                      </Text>
-                    )}
+
+                    {/* AQUI ESTÁ A CORREÇÃO: Agrupamos os dois textos em uma View */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginTop: 4,
+                      }}
+                    >
+                      {c.disjuntor && (
+                        <Text style={styles.textoDisjuntor}>
+                          Disjuntor: {c.disjuntor}A
+                        </Text>
+                      )}
+                      {c.bitola && (
+                        <Text
+                          style={[
+                            styles.textoDisjuntor,
+                            { fontWeight: "bold", marginLeft: 10 },
+                          ]}
+                        >
+                          • Fio: {c.bitola} mm²
+                        </Text>
+                      )}
+                    </View>
                   </View>
                   <TouchableOpacity onPress={() => removerCircuito(c.id)}>
                     <Text>❌</Text>
@@ -97,7 +120,7 @@ export default function TelaQuadro() {
                 <Text style={styles.valor}>{resultadoQDC.correnteGeral} A</Text>
               </View>
               <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Cabo Alimentador (Medidor -> QDC):</Text>
+                <Text style={styles.label}>Cabo Alimentador:</Text>
                 <Text style={styles.valorDestaque}>
                   {resultadoQDC.caboGeral} mm²
                 </Text>
@@ -119,8 +142,14 @@ export default function TelaQuadro() {
             >
               <Text style={styles.textoBotaoExportar}>🟩 Enviar Relatório</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.botaoLimpar} onPress={zerarProjeto}>
-              <Text style={styles.textoBotaoLimpar}>Zerar Projeto</Text>
+
+            <TouchableOpacity
+              style={styles.botaoNovoProjeto}
+              onPress={zerarProjeto}
+            >
+              <Text style={styles.textoBotaoLimpar}>
+                ■ Iniciar Novo Projeto
+              </Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -163,7 +192,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f3f4f6",
   },
   nomeCircuito: { fontSize: 14, color: "#374151" },
-  textoDisjuntor: { fontSize: 11, color: "#6b7280", marginTop: 2 },
+  textoDisjuntor: { fontSize: 11, color: "#6b7280" },
   cardRelatorio: {
     backgroundColor: "#064e3b",
     padding: 16,
@@ -202,8 +231,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   textoBotaoExportar: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
-  botaoLimpar: {
-    backgroundColor: "#ef4444",
+  botaoNovoProjeto: {
+    backgroundColor: "#070606",
     padding: 14,
     borderRadius: 8,
     alignItems: "center",
