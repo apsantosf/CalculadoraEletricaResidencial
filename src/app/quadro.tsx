@@ -30,13 +30,20 @@ export default function TelaQuadro() {
 
   const handleCompartilharRelatorio = async () => {
     if (!resultadoQDC) return;
-    let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n\n📋 RELAÇÃO DE CIRCUITOS:\n`;
+
+    let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
+    texto += `📐 Baseado na Norma NBR 5410:2004\n`;
+    texto += `--------------------------------------\n\n`;
+    texto += `📋 RELAÇÃO DE CIRCUITOS:\n`;
+
     circuitos.forEach((c) => {
       const detalhe = c.detalhe ? ` (${c.detalhe})` : "";
       const disj = c.disjuntor ? ` | Disj: ${c.disjuntor}A` : "";
       texto += `• ${c.nome}${detalhe}: ${c.potenciaWatts || c.potenciaVA} ${c.potenciaWatts ? "W" : "VA"}${disj}\n`;
     });
-    texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo: ${resultadoQDC.caboGeral} mm²\nDisjuntor: ${resultadoQDC.disjuntorGeral} A`;
+
+    texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
+
     await Share.share({ message: texto });
   };
 

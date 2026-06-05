@@ -58,6 +58,7 @@ export default function TelaTues() {
         <FormTue
           onCalcular={handleCalcularTue}
           onAdicionar={handleAdicionarTue}
+          podeAdicionar={resultadoTue !== null}
         />
 
         {resultadoTue && (

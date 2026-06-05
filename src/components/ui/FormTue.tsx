@@ -12,19 +12,19 @@ import { LISTA_EQUIPAMENTOS } from "../../utils/listaEquipamentos";
 export default function FormTue({
   onAdicionar,
   onCalcular,
+  podeAdicionar, // <-- 1. RECEBENDO A VARIÁVEL AQUI
 }: {
   onAdicionar: (data: any) => void;
   onCalcular: (data: any) => void;
+  podeAdicionar: boolean; // <-- 2. DECLARANDO O TIPO DELA
 }) {
   const [equipamento, setEquipamento] = useState(LISTA_EQUIPAMENTOS[0]);
   const [potencia, setPotencia] = useState(
     LISTA_EQUIPAMENTOS[0].potencia.toString(),
   );
   const [tensao, setTensao] = useState("220");
-  const [calcRealizado, setCalcRealizado] = useState(false);
 
   const handleCalcular = () => {
-    setCalcRealizado(true);
     onCalcular({
       nome: equipamento.nome,
       potencia: parseFloat(potencia),
@@ -41,10 +41,8 @@ export default function FormTue({
       <Text style={styles.label}>Tipo de Equipamento</Text>
       <View style={styles.pickerContainer}>
         <Picker
-          // Usamos o 'nome' do equipamento como chave de identificação (itemValue)
           selectedValue={equipamento.nome}
           onValueChange={(itemValue) => {
-            // Encontramos o objeto completo na lista usando o nome selecionado
             const itemSelecionado = LISTA_EQUIPAMENTOS.find(
               (e) => e.nome === itemValue,
             );
@@ -52,13 +50,11 @@ export default function FormTue({
             if (itemSelecionado) {
               setEquipamento(itemSelecionado);
               setPotencia(itemSelecionado.potencia.toString());
-              setCalcRealizado(false);
             }
           }}
           style={styles.picker}
         >
           {LISTA_EQUIPAMENTOS.map((item, index) => (
-            // Agora o value é o 'nome', que é uma string única e imutável
             <Picker.Item key={index} label={item.nome} value={item.nome} />
           ))}
         </Picker>
@@ -71,7 +67,6 @@ export default function FormTue({
         value={potencia}
         onChangeText={(val) => {
           setPotencia(val);
-          setCalcRealizado(false);
         }}
       />
 
@@ -83,7 +78,6 @@ export default function FormTue({
             style={[styles.btnTensao, tensao === v && styles.btnTensaoActive]}
             onPress={() => {
               setTensao(v);
-              setCalcRealizado(false);
             }}
           >
             <Text style={tensao === v ? styles.txtActive : styles.txt}>
@@ -101,10 +95,10 @@ export default function FormTue({
         <TouchableOpacity
           style={[
             styles.botaoAdicionar,
-            !calcRealizado && styles.botaoDesativado,
+            !podeAdicionar && styles.botaoDesativado, // <-- 3. MUDA A COR SE NÃO PUDER ADICIONAR
           ]}
           onPress={handleAdicionar}
-          disabled={!calcRealizado}
+          disabled={!podeAdicionar} // <-- 4. BLOQUEIA O CLIQUE AQUI
         >
           <Text style={styles.textoBotao}>Adicionar TUE</Text>
         </TouchableOpacity>

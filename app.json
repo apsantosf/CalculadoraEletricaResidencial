@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Elétrica Residencial",
-    "slug": "eletrica-residencial",
-    "version": "1.3.0",
+    "slug": "CalculadoraEletricaResidencial",
+    "version": "1.3.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
@@ -14,7 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.apsantosf.CalculadoraEletricaResidencial"
@@ -41,6 +41,7 @@
       "eas": {
         "projectId": "b24445fb-366e-461f-8ab1-3d3925a9f91e"
       }
-    }
+    },
+    "owner": "apsantosf"
   }
 }
