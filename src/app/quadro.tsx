@@ -17,16 +17,20 @@ export default function TelaQuadro() {
   const { circuitos, tensaoGeral, removerCircuito, zerarProjeto } = useData();
 
   const processarQuadroGeral = () => {
+    // CORREÇÃO: A soma agora acessa corretamente o valor de potenciaVA
     const somaIlumTugVA = circuitos
       .filter(
         (c) =>
           c.tipo === "iluminacao" || c.tipo === "tug" || c.tipo === "tomada",
       )
-      .reduce((acc, curr) => acc + (curr.potenciaVA, 0), 0);
+      .reduce((acc, curr) => acc + (curr.potenciaVA || 0), 0);
 
     const listaWattsTue = circuitos
       .filter((c) => c.tipo === "tue" && c.potenciaWatts !== undefined)
       .map((c) => c.potenciaWatts as number);
+
+    // Se a soma for 0 ou NaN, o resultado será nulo para evitar erro no cálculo
+    if (somaIlumTugVA === 0 && listaWattsTue.length === 0) return null;
 
     return calcularAlimentadorGeral({
       potenciaIlumTugVA: somaIlumTugVA,
