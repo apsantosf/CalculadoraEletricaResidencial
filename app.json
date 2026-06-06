@@ -7,11 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
     "userInterfaceStyle": "automatic",
-    "platforms": [
-      "android",
-      "ios",
-      "web"
-    ],
+    "platforms": ["android", "ios", "web"],
     "ios": {
       "icon": "./assets/expo.icon"
     },

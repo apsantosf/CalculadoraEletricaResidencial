@@ -12,9 +12,6 @@ import {
   dimensionarCircuito,
 } from "../utils/calculations";
 
-// 📦 Importando a versão automaticamente a partir do package.json na raiz do projeto
-import { version } from "../../package.json";
-
 export default function TelaComodos() {
   const {
     tensaoGeral,
@@ -25,21 +22,16 @@ export default function TelaComodos() {
   } = useData();
   const [resultado, setResultado] = useState<any>(null);
 
-  // Limpa o card de resultado local caso ocorra um reset no projeto
   useEffect(() => {
     setResultado(null);
   }, [tokenReset]);
 
-  const comodosAdicionados = circuitos.filter(
-    (c) => c.tipo === "iluminacao" || c.tipo === "tug",
-  );
+  // Filtra apenas circuitos de cômodos para o contador
+  const totalComodos =
+    circuitos.filter((c) => c.tipo === "iluminacao" || c.tipo === "tug")
+      .length / 2;
 
-  const handleCalcularComodo = (dados: {
-    nome: string;
-    area: number;
-    perimetro: number;
-    tipo: "social" | "servico";
-  }) => {
+  const handleCalcular = (dados: any) => {
     const potIluminacao = calcularIluminacao(dados.area);
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
     const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
@@ -51,57 +43,43 @@ export default function TelaComodos() {
     );
     const circuitoTomadas = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
 
-    const nomeFinal =
-      dados.nome || `Cômodo ${comodosAdicionados.length / 2 + 1}`;
-
     setResultado({
-      nome: nomeFinal,
-      tipo: dados.tipo,
-      perimetro: dados.perimetro,
+      ...dados,
       iluminacao: { potencia: potIluminacao, ...circuitoIlum },
       tomadas: { quantidade: qtdTugs, potencia: potTugs, ...circuitoTomadas },
     });
+  };
 
+  const handleAdicionar = (dados: any) => {
     adicionarCircuitos([
       {
         id: Math.random().toString(),
-        nome: `${nomeFinal} (Luz)`,
+        nome: `${dados.nome} (Luz)`,
         tipo: "iluminacao",
-        potenciaVA: potIluminacao,
+        potenciaVA: dados.potenciaIlum,
       },
       {
         id: Math.random().toString(),
-        nome: `${nomeFinal} (TUG)`,
+        nome: `${dados.nome} (TUG)`,
         tipo: "tug",
-        potenciaVA: potTugs,
-        detalhe: `(${qtdTugs} tomadas)`,
+        potenciaVA: dados.potenciaTugs,
+        detalhe: `(${dados.qtdTugs} tomadas)`,
       },
     ]);
+    setResultado(null);
   };
 
   return (
     <View style={styles.wrapperWeb}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ paddingBottom: 80 }}
       >
-        {/* Identificação Didática da Norma Técnico */}
-        <View style={styles.cardNorma}>
-          <Text style={styles.txtNormaMain}>
-            Dimensionamento Baseado na Norma
-          </Text>
-          <Text style={styles.txtNormaDestaque}>NBR 5410:2004</Text>
-          <Text style={styles.txtNormaSub}>
-            Instalações Elétricas de Baixa Tensão
-          </Text>
-        </View>
-
         <View style={styles.cardConfig}>
           <SeletorBotoes
-            label="Tensão Geral da Instalação"
+            label="Tensão Geral"
             valorSelecionado={tensaoGeral}
-            onSelecionar={(val) => setTensaoGeral(val)}
+            onSelecionar={setTensaoGeral}
             opcoes={[
               { id: 127, label: "127 V" },
               { id: 220, label: "220 V" },
@@ -109,24 +87,26 @@ export default function TelaComodos() {
           />
         </View>
 
-        <FormPrevisaoCarga onCalcular={handleCalcularComodo} />
+        <FormPrevisaoCarga
+          onCalcular={handleCalcular}
+          onAdicionar={handleAdicionar}
+        />
 
         {resultado && (
           <View style={styles.resultadoContainer}>
             <Text style={styles.txtFeedback}>
-              ✅ Salvo no Quadro: {resultado.nome}
+              ✅ Pronto para adicionar: {resultado.nome}
             </Text>
-
             <CardResultado
               titulo="💡 Iluminação"
               corBorda="#208AEF"
               items={[
                 {
-                  label: "Potência Mínima Exigida",
+                  label: "Potência",
                   valor: `${resultado.iluminacao.potencia} VA`,
                 },
                 {
-                  label: "Cabo Ideal",
+                  label: "Cabo",
                   valor: `${resultado.iluminacao.secaoCabo} mm²`,
                   corValor: "green",
                 },
@@ -137,33 +117,20 @@ export default function TelaComodos() {
                 },
               ]}
             />
-
             <CardResultado
-              titulo="🔌 Tomadas Gerais (TUG)"
+              titulo="🔌 Tomadas (TUG)"
               corBorda="#FF9500"
               items={[
                 {
-                  label: "Mínimo Obrigatório por Norma",
-                  valor: `${resultado.tomadas.quantidade} tomada(s)`,
+                  label: "Qtd. Tomadas",
+                  valor: `${resultado.tomadas.quantidade}`,
                 },
                 {
-                  label: "Critério de Fração Aplicado",
-                  valor:
-                    resultado.tipo === "servico"
-                      ? `1 tomada a cada 3,5m de perímetro (${resultado.perimetro}m)`
-                      : `1 tomada a cada 5,0m de perímetro (${resultado.perimetro}m)`,
-                },
-                {
-                  label: "Potência de Carga do Circuito",
+                  label: "Potência",
                   valor: `${resultado.tomadas.potencia} VA`,
                 },
                 {
-                  label: "Cabo Mínimo da Linha",
-                  valor: `${resultado.tomadas.secaoCabo} mm²`,
-                  corValor: "green",
-                },
-                {
-                  label: "Disjuntor de Proteção",
+                  label: "Disjuntor",
                   valor: `${resultado.tomadas.disjuntor} A`,
                   corValor: "red",
                 },
@@ -172,22 +139,13 @@ export default function TelaComodos() {
           </View>
         )}
 
-        {comodosAdicionados.length > 0 && (
-          <View style={styles.resumoContainer}>
-            <Text style={styles.txtResumoTitulo}>
-              🏠 Cômodos na Memória do Quadro
-            </Text>
-            <Text style={styles.txtResumoSub}>
-              Total cadastrado: {comodosAdicionados.length / 2} cômodo(s)
-            </Text>
-          </View>
-        )}
+        <View style={styles.resumoContainer}>
+          <Text style={styles.txtResumoTitulo}>🏠 Cômodos na Memória</Text>
+          <Text style={styles.txtResumoSub}>
+            Total cadastrado: {totalComodos} cômodo(s)
+          </Text>
+        </View>
       </ScrollView>
-
-      {/* 🏷️ Rodapé fixado abaixo do ScrollView */}
-      <View style={styles.containerRodape}>
-        <Text style={styles.txtVersaoApp}>Versão {version}</Text>
-      </View>
     </View>
   );
 }
