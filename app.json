@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "CalculadoraEletricaResidencial",
+    "name": "Elétrica Residencial",
     "slug": "CalculadoraEletricaResidencial",
     "version": "1.4.3",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
     "userInterfaceStyle": "automatic",
     "platforms": [
