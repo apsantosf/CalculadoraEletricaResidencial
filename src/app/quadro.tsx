@@ -1,4 +1,5 @@
 //   src/app/quadro.txt
+import { router } from "expo-router"; // Importado para navegação
 import {
   ScrollView,
   Share,
@@ -47,6 +48,12 @@ export default function TelaQuadro() {
     texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
 
     await Share.share({ message: texto });
+  };
+
+  // Função para limpar projeto e retornar ao início
+  const handleNovoProjeto = () => {
+    zerarProjeto();
+    router.replace("/");
   };
 
   return (
@@ -119,8 +126,12 @@ export default function TelaQuadro() {
             >
               <Text style={styles.textoBotaoExportar}>🟩 Enviar Relatório</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.botaoLimpar} onPress={zerarProjeto}>
-              <Text style={styles.textoBotaoLimpar}>Zerar Projeto</Text>
+
+            <TouchableOpacity
+              style={styles.botaoLimpar}
+              onPress={handleNovoProjeto}
+            >
+              <Text style={styles.textoBotaoLimpar}>Novo Projeto</Text>
             </TouchableOpacity>
           </View>
         ) : (

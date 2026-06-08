@@ -1,3 +1,4 @@
+//   src/app/index.tsx
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
@@ -16,13 +17,16 @@ export default function TelaComodos() {
     useData();
   const [resultado, setResultado] = useState<any>(null);
 
-  // Filtra apenas o tipo iluminação para contar cômodos corretamente
-  const totalComodos = circuitos.filter((c) => c.tipo === "iluminacao").length;
+  // Conta cômodos pelo tipo iluminacao
+  const totalComodos = (circuitos || []).filter(
+    (c) => c.tipo === "iluminacao",
+  ).length;
 
   const handleCalcularOficial = (dados: any) => {
     const potIluminacao = calcularIluminacao(dados.area);
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
     const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
+
     const circIlum = dimensionarCircuito(
       potIluminacao,
       tensaoGeral,
@@ -56,6 +60,7 @@ export default function TelaComodos() {
         tipo: "iluminacao",
         potenciaVA: potIluminacao,
         disjuntor: circIlum.disjuntor,
+        bitola: circIlum.secaoCabo,
       },
       {
         id: Math.random().toString(),
@@ -64,6 +69,7 @@ export default function TelaComodos() {
         potenciaVA: potTugs,
         detalhe: `${qtdTugs} tomadas`,
         disjuntor: circTug.disjuntor,
+        bitola: circTug.secaoCabo,
       },
     ]);
     setResultado(null);
@@ -92,6 +98,7 @@ export default function TelaComodos() {
         {resultado && (
           <View style={styles.resultadoContainer}>
             <Text style={styles.txtFeedback}>✅ {resultado.nome}</Text>
+
             <CardResultado
               titulo="💡 Iluminação"
               corBorda="#208AEF"
@@ -100,8 +107,17 @@ export default function TelaComodos() {
                   label: "Potência",
                   valor: `${resultado.iluminacao.potencia} VA`,
                 },
+                {
+                  label: "Disjuntor",
+                  valor: `${resultado.iluminacao.disjuntor} A`,
+                },
+                {
+                  label: "Cabo",
+                  valor: `${resultado.iluminacao.secaoCabo} mm²`,
+                },
               ]}
             />
+
             <CardResultado
               titulo="🔌 Tomadas"
               corBorda="#FF9500"
@@ -110,6 +126,11 @@ export default function TelaComodos() {
                   label: "Qtd",
                   valor: `${resultado.tomadas.quantidade} unid.`,
                 },
+                {
+                  label: "Disjuntor",
+                  valor: `${resultado.tomadas.disjuntor} A`,
+                },
+                { label: "Cabo", valor: `${resultado.tomadas.secaoCabo} mm²` },
               ]}
             />
           </View>
