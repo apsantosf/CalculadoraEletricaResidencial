@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Elétrica Residencial",
+    "slug": "CalculadoraEletricaResidencial",
+    "version": "1.3.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "calculadoraeletricaresidencial",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["android", "ios", "web"],
+    "ios": {
+      "icon": "./assets/expo.icon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.apsantosf.CalculadoraEletricaResidencial"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#208AEF",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b24445fb-366e-461f-8ab1-3d3925a9f91e"
+      }
+    },
+    "owner": "apsantosf"
+  }
+}
