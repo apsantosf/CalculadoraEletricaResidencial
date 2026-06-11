@@ -1,7 +1,7 @@
 // FormPrevisaoCarga.tsx
 
 import { Picker } from "@react-native-picker/picker";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -56,6 +56,26 @@ export default function FormPrevisaoCarga({
     setArea("");
     setPerimetro("");
   };
+
+  useEffect(() => {
+    const styleId = "picker-reset-style";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.innerHTML = `
+        select {
+          -webkit-appearance: none !important;
+          -moz-appearance: none !important;
+          appearance: none !important;
+          background-color: transparent !important;
+          border: none !important;
+          outline: none !important;
+          padding: 0 10px !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
 
   return (
     <View style={styles.cardForm}>
