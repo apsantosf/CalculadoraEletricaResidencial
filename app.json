@@ -17,7 +17,7 @@
         "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.apsantosf.CalculadoraEletricaResidencial"
+      "package": "com.apsantosf.eletricaresidencial"
     },
     "plugins": [
       "expo-router",
