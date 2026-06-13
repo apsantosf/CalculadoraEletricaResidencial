@@ -17,7 +17,8 @@
         "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.apsantosf.eletricaresidencial"
+      "package": "com.apsantosf.eletricaresidencial",
+      "versionCode": 3
     },
     "plugins": [
       "expo-router",
