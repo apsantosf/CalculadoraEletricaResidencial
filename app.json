@@ -7,10 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
     "userInterfaceStyle": "automatic",
-    "platforms": ["android", "ios", "web"],
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
+    "platforms": ["android", "web"],
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
@@ -18,7 +15,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.apsantosf.eletricaresidencial",
-      "versionCode": 4
+      "versionCode": 5
     },
     "plugins": [
       "expo-router",
@@ -31,7 +28,8 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

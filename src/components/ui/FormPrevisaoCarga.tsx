@@ -1,5 +1,4 @@
-// FormPrevisaoCarga.tsx
-
+// src/components/ui/FormPrevisaoCarga.tsx
 import { Picker } from "@react-native-picker/picker";
 import { useEffect, useState } from "react";
 import {
@@ -11,36 +10,47 @@ import {
 } from "react-native";
 import { useData } from "../../context/DataContext";
 import { LISTA_COMODOS } from "../../utils/listaComodos";
+import { applyPickerStyles } from "./pickerStyles";
+
+export interface AmbientePayload {
+  nome: string;
+  tipo: string;
+  area: number;
+  perimetro: number;
+}
+
+interface FormProps {
+  onAdicionar?: (data: AmbientePayload) => void;
+  Calcular?: (data: AmbientePayload) => void;
+}
 
 export default function FormPrevisaoCarga({
   onAdicionar,
   onCalcular,
-}: {
-  onAdicionar?: (data: any) => void;
-  onCalcular?: (data: any) => void;
-}) {
+}: FormProps) {
   const { tensaoGeral } = useData();
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
   const [ambiente, setAmbiente] = useState(LISTA_COMODOS[0]);
   const [calcRealizado, setCalcRealizado] = useState(false);
 
+  useEffect(() => {
+    applyPickerStyles();
+  }, []);
+
   const handleCalcular = () => {
     const nArea = parseFloat(area.replace(",", "."));
     const nPerim = parseFloat(perimetro.replace(",", "."));
     if (isNaN(nArea) || isNaN(nPerim))
       return alert("Preencha Área e Perímetro corretamente.");
-
     setCalcRealizado(true);
-
-    if (onCalcular) {
+    if (onCalcular)
       onCalcular({
         nome: ambiente.nome,
         tipo: ambiente.tipo,
         area: nArea,
         perimetro: nPerim,
       });
-    }
   };
 
   const handleAdicionar = () => {
@@ -57,26 +67,6 @@ export default function FormPrevisaoCarga({
     setPerimetro("");
   };
 
-  useEffect(() => {
-    const styleId = "picker-reset-style";
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement("style");
-      style.id = styleId;
-      style.innerHTML = `
-        select {
-          -webkit-appearance: none !important;
-          -moz-appearance: none !important;
-          appearance: none !important;
-          background-color: transparent !important;
-          border: none !important;
-          outline: none !important;
-          padding: 0 10px !important;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
-
   return (
     <View style={styles.cardForm}>
       <Text style={styles.label}>Selecione o Ambiente</Text>
@@ -89,7 +79,7 @@ export default function FormPrevisaoCarga({
             );
             if (ambienteSelecionado) {
               setAmbiente(ambienteSelecionado);
-              setCalcRealizado(false); // Reseta o botão de adicionar ao mudar o cômodo
+              setCalcRealizado(false);
             }
           }}
           style={styles.picker}
@@ -125,7 +115,6 @@ export default function FormPrevisaoCarga({
         <TouchableOpacity style={styles.botaoCalcular} onPress={handleCalcular}>
           <Text style={styles.textoBotao}>Calcular</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={[
             styles.botaoAdicionar,
@@ -159,18 +148,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pickerContainer: {
-    backgroundColor: "#fefce8", // Amarelo bem clarinho
+    backgroundColor: "#fefce8",
     borderWidth: 2,
-    borderColor: "#2563eb", // Azul definido
+    borderColor: "#2563eb",
     borderRadius: 8,
     marginBottom: 12,
     overflow: "hidden",
   },
-  picker: {
-    height: 50,
-    color: "#2563eb",
-    backgroundColor: "#fefce8", // Aplicamos a cor aqui também para forçar o preenchimento
-  },
+  picker: { height: 50, color: "#2563eb", backgroundColor: "#fefce8" },
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
   containerBotoes: {
