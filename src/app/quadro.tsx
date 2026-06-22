@@ -2,6 +2,7 @@
 import { router } from "expo-router"; // Importado para navegação
 import { useState } from "react";
 import {
+  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -43,16 +44,63 @@ export default function TelaQuadro() {
     texto += `--------------------------------------\n\n`;
     texto += `📋 RELAÇÃO DE CIRCUITOS:\n`;
 
-    circuitos.forEach((c) => {
+    circuitos.forEach((c: any) => {
       const detalhe = c.detalhe ? ` (${c.detalhe})` : "";
-      const disj = c.disjuntor ? ` | Disj: ${c.disjuntor}A` : "";
-      const cabo = c.bitola ? ` | Cabo: ${c.bitola}mm²` : "";
-      texto += `• ${c.nome}${detalhe}: ${c.potenciaWatts || c.potenciaVA} ${c.potenciaWatts ? "W" : "VA"}${disj}${cabo}\n`;
+      const disj = c?.disjuntor ? ` | Disj: ${c.disjuntor}A` : "";
+      const cabo = c?.bitola ? ` | Cabo: ${c.bitola}mm²` : "";
+
+      const potenciaValor =
+        c.potenciaWatts && c.potenciaWatts > 0 ? c.potenciaWatts : c.potenciaVA;
+      const potenciaUnidade =
+        c.potenciaWatts && c.potenciaWatts > 0 ? "W" : "VA";
+
+      texto += `• ${c.nome}${detalhe}: ${potenciaValor} ${potenciaUnidade}${disj}${cabo}\n`;
     });
 
     texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nTensão: ${tensaoGeral} V\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
 
     await Share.share({ message: texto });
+  };
+
+  // 💡 FUNÇÃO ATUALIZADA: Pergunta se tem certeza antes de eliminar o cômodo inteiro (Luz + TUG)
+  const handleRemoverCircuitoPar = (circuitoSelecionado: any) => {
+    // Extrai o nome base do cômodo (removendo a parte técnica entre parênteses para exibir de forma limpa no alerta)
+    const nomeComodo = circuitoSelecionado.nome.split(" (")[0] || "este cômodo";
+
+    if (Platform.OS === "web") {
+      const confirmou = window.confirm(
+        `Tem certeza que vai excluir o cômodo "${nomeComodo}"?`,
+      );
+      if (confirmou) {
+        removerCircuitosDoGrupo(circuitoSelecionado);
+      }
+    } else {
+      Alert.alert(
+        "Excluir Cômodo",
+        `Tem certeza que vai excluir o cômodo "${nomeComodo}"?`,
+        [
+          { text: "Não", style: "cancel" },
+          {
+            text: "Sim",
+            style: "destructive",
+            onPress: () => removerCircuitosDoGrupo(circuitoSelecionado),
+          },
+        ],
+      );
+    }
+  };
+
+  // Função auxiliar interna que realiza a exclusão de ambos (Luz + TUG) pelo grupoId
+  const removerCircuitosDoGrupo = (circuitoReferencia: any) => {
+    if (circuitoReferencia.grupoId) {
+      circuitos.forEach((circ: any) => {
+        if (circ.grupoId === circuitoReferencia.grupoId) {
+          removerCircuito(circ.id);
+        }
+      });
+    } else {
+      removerCircuito(circuitoReferencia.id);
+    }
   };
 
   // Função pura que zera os dados e vai para a página inicial
@@ -89,7 +137,7 @@ export default function TelaQuadro() {
           <View style={styles.quadroContainer}>
             <Text style={styles.subtitulo}>📋 RELAÇÃO DE CIRCUITOS</Text>
             <View style={styles.cardLista}>
-              {circuitos.map((c) => (
+              {circuitos.map((c: any) => (
                 <View key={c.id} style={styles.itemCircuito}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nomeCircuito}>
@@ -108,7 +156,8 @@ export default function TelaQuadro() {
                       )}
                     </View>
                   </View>
-                  <TouchableOpacity onPress={() => removerCircuito(c.id)}>
+                  {/* Botão de exclusão unificado para disparar a verificação */}
+                  <TouchableOpacity onPress={() => handleRemoverCircuitoPar(c)}>
                     <Text style={{ fontSize: 18 }}>❌</Text>
                   </TouchableOpacity>
                 </View>
@@ -270,7 +319,6 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   txtAviso: { color: "#6b7280", fontSize: 14, textAlign: "center" },
-  // Estilos puros da caixinha (Modal) do celular
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

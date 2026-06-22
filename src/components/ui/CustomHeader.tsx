@@ -1,4 +1,5 @@
 //   src/components/ui/CustomHeader.tsx
+import Constants from "expo-constants"; // Importação para ler a versão
 import { router } from "expo-router";
 import {
   Alert,
@@ -17,6 +18,9 @@ interface CustomHeaderProps {
 
 export default function CustomHeader({ title }: CustomHeaderProps) {
   const { zerarProjeto } = useData();
+
+  // Lê a versão definida no campo 'version' do app.json, com um fallback seguro
+  const appVersion = Constants.expoConfig?.version || "1.0.0";
 
   const handleSairDoSistema = () => {
     if (Platform.OS === "web") {
@@ -60,15 +64,18 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
         </Text>
       </View>
 
-      {/* Lado Direito: Botão X */}
-      <TouchableOpacity
-        onPress={handleSairDoSistema}
-        style={{ padding: 8, borderRadius: 4 }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "bold", color: "#374151" }}>
-          X
-        </Text>
-      </TouchableOpacity>
+      {/* Lado Direito: Versão e Botão X alinhados */}
+      <View style={styles.rightContainer}>
+        <Text style={styles.versionText}>v{appVersion}</Text>
+        <TouchableOpacity
+          onPress={handleSairDoSistema}
+          style={styles.botaoSair}
+        >
+          <Text style={{ fontSize: 18, fontWeight: "bold", color: "#374151" }}>
+            X
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -88,5 +95,19 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e5e7eb",
     // No Android, damos um espaço para a barra de estado
     marginTop: Platform.OS === "android" ? 24 : 0,
+  },
+  rightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  versionText: {
+    fontSize: 11,
+    color: "#6b7280",
+    fontWeight: "600",
+    marginRight: 12,
+  },
+  botaoSair: {
+    padding: 8,
+    borderRadius: 4,
   },
 });

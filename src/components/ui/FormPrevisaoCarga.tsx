@@ -21,7 +21,7 @@ export interface AmbientePayload {
 
 interface FormProps {
   onAdicionar?: (data: AmbientePayload) => void;
-  Calcular?: (data: AmbientePayload) => void;
+  onCalcular?: (data: AmbientePayload) => void;
 }
 
 export default function FormPrevisaoCarga({

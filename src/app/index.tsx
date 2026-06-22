@@ -1,3 +1,4 @@
+//   src/app/index.tsx
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
@@ -12,10 +13,27 @@ import {
   dimensionarCircuito,
 } from "../utils/calculations";
 
+// Interface auxiliar para tipar o resultado e eliminar avisos de aninhamento
+interface DetalheCircuito {
+  potencia: number;
+  correnteProjeto: number;
+  secaoCabo: number;
+  disjuntor: number;
+  quantidade?: number;
+}
+
+interface ResultadoPrevisao {
+  nome: string;
+  iluminacao?: DetalheCircuito;
+  tomadas?: DetalheCircuito;
+}
+
 export default function TelaComodos() {
   const { tensaoGeral, setTensaoGeral, adicionarCircuitos, circuitos } =
     useData();
-  const [resultado, setResultado] = useState<any>(null);
+
+  // Adicionada a tipagem estruturada no useState
+  const [resultado, setResultado] = useState<ResultadoPrevisao | null>(null);
 
   // Conta cômodos pelo tipo iluminacao
   const totalComodos = (circuitos || []).filter(
@@ -53,10 +71,14 @@ export default function TelaComodos() {
     );
     const circTug = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
 
+    // Gerado o identificador único e seguro para o par (Luz + TUG)
+    const grupoComodoId = Math.random().toString();
+
     adicionarCircuitos([
       {
         id: Math.random().toString(),
         nome: `${dados.nome} (Luz - ${potIluminacao}W - ${tensaoGeral}V)`,
+        grupoId: grupoComodoId,
         tipo: "iluminacao",
         potenciaVA: potIluminacao,
         potenciaWatts: potIluminacao,
@@ -66,6 +88,7 @@ export default function TelaComodos() {
       {
         id: Math.random().toString(),
         nome: `${dados.nome} (TUG - ${potTugs}VA - ${tensaoGeral}V)`,
+        grupoId: grupoComodoId,
         tipo: "tug",
         potenciaVA: potTugs,
         potenciaWatts: 0,
@@ -80,6 +103,27 @@ export default function TelaComodos() {
   // Verifica se o projeto já possui circuitos para travar a tensão geral
   const projetoIniciado = circuitos && circuitos.length > 0;
 
+  // Variáveis seguras tipadas puramente como string garantem que o CardResultado não reclame de tipagem
+  const ilumPotencia = resultado?.iluminacao?.potencia
+    ? `${resultado.iluminacao.potencia} VA`
+    : "-";
+  const ilumDisjuntor = resultado?.iluminacao?.disjuntor
+    ? `${resultado.iluminacao.disjuntor} A`
+    : "-";
+  const ilumCabo = resultado?.iluminacao?.secaoCabo
+    ? `${resultado.iluminacao.secaoCabo} mm²`
+    : "-";
+
+  const tugQtd = resultado?.tomadas?.quantidade
+    ? `${resultado.tomadas.quantidade} unid.`
+    : "-";
+  const tugDisjuntor = resultado?.tomadas?.disjuntor
+    ? `${resultado.tomadas.disjuntor} A`
+    : "-";
+  const tugCabo = resultado?.tomadas?.secaoCabo
+    ? `${resultado.tomadas.secaoCabo} mm²`
+    : "-";
+
   return (
     <View style={styles.wrapperWeb}>
       <CustomHeader title="Previsão de Carga" />
@@ -89,7 +133,6 @@ export default function TelaComodos() {
           <Text style={styles.lblSeletor}>
             Tensão de Entrada (Concessionária)
           </Text>
-          {/* Se o projeto foi iniciado, apenas mostramos o valor selecionado como texto estático informativo para travar. Se não, mostramos o seletor. */}
           {projetoIniciado ? (
             <View style={styles.valorTravadoContainer}>
               <Text style={styles.valorTravadoTexto}>{tensaoGeral} V</Text>
@@ -127,18 +170,9 @@ export default function TelaComodos() {
               titulo="💡 Iluminação"
               corBorda="#208AEF"
               items={[
-                {
-                  label: "Potência",
-                  valor: `${resultado.iluminacao.potencia} VA`,
-                },
-                {
-                  label: "Disjuntor",
-                  valor: `${resultado.iluminacao.disjuntor} A`,
-                },
-                {
-                  label: "Cabo",
-                  valor: `${resultado.iluminacao.secaoCabo} mm²`,
-                },
+                { label: "Potência", valor: ilumPotencia },
+                { label: "Disjuntor", valor: ilumDisjuntor },
+                { label: "Cabo", valor: ilumCabo },
               ]}
             />
 
@@ -146,15 +180,9 @@ export default function TelaComodos() {
               titulo="🔌 Tomadas"
               corBorda="#FF9500"
               items={[
-                {
-                  label: "Qtd",
-                  valor: `${resultado.tomadas.quantidade} unid.`,
-                },
-                {
-                  label: "Disjuntor",
-                  valor: `${resultado.tomadas.disjuntor} A`,
-                },
-                { label: "Cabo", valor: `${resultado.tomadas.secaoCabo} mm²` },
+                { label: "Qtd", valor: tugQtd },
+                { label: "Disjuntor", valor: tugDisjuntor },
+                { label: "Cabo", valor: tugCabo },
               ]}
             />
           </View>
@@ -207,6 +235,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
+  },
+  valorTravadoTexto: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#1F2937",
   },
   valorTravadoTexto: {
     fontSize: 16,
