@@ -1,7 +1,7 @@
-//   src/app/index.tsx
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
+import CustomHeader from "../components/ui/CustomHeader";
 import FormPrevisaoCarga from "../components/ui/FormPrevisaoCarga";
 import SeletorBotoes from "../components/ui/SeletorBotoes";
 import { useData } from "../context/DataContext";
@@ -56,17 +56,19 @@ export default function TelaComodos() {
     adicionarCircuitos([
       {
         id: Math.random().toString(),
-        nome: `${dados.nome} (Luz)`,
+        nome: `${dados.nome} (Luz - ${potIluminacao}W - ${tensaoGeral}V)`,
         tipo: "iluminacao",
         potenciaVA: potIluminacao,
+        potenciaWatts: potIluminacao,
         disjuntor: circIlum.disjuntor,
         bitola: circIlum.secaoCabo,
       },
       {
         id: Math.random().toString(),
-        nome: `${dados.nome} (TUG)`,
+        nome: `${dados.nome} (TUG - ${potTugs}VA - ${tensaoGeral}V)`,
         tipo: "tug",
         potenciaVA: potTugs,
+        potenciaWatts: 0,
         detalhe: `${qtdTugs} tomadas`,
         disjuntor: circTug.disjuntor,
         bitola: circTug.secaoCabo,
@@ -75,19 +77,41 @@ export default function TelaComodos() {
     setResultado(null);
   };
 
+  // Verifica se o projeto já possui circuitos para travar a tensão geral
+  const projetoIniciado = circuitos && circuitos.length > 0;
+
   return (
     <View style={styles.wrapperWeb}>
+      <CustomHeader title="Previsão de Carga" />
+
       <ScrollView style={styles.container}>
         <View style={styles.cardConfig}>
-          <SeletorBotoes
-            label="Tensão Geral"
-            valorSelecionado={tensaoGeral}
-            onSelecionar={setTensaoGeral}
-            opcoes={[
-              { id: 127, label: "127 V" },
-              { id: 220, label: "220 V" },
-            ]}
-          />
+          <Text style={styles.lblSeletor}>
+            Tensão de Entrada (Concessionária)
+          </Text>
+          {/* Se o projeto foi iniciado, apenas mostramos o valor selecionado como texto estático informativo para travar. Se não, mostramos o seletor. */}
+          {projetoIniciado ? (
+            <View style={styles.valorTravadoContainer}>
+              <Text style={styles.valorTravadoTexto}>{tensaoGeral} V</Text>
+            </View>
+          ) : (
+            <SeletorBotoes
+              label=""
+              valorSelecionado={tensaoGeral}
+              onSelecionar={setTensaoGeral}
+              opcoes={[
+                { id: 127, label: "127 V" },
+                { id: 220, label: "220 V" },
+              ]}
+            />
+          )}
+
+          {projetoIniciado && (
+            <Text style={styles.txtAvisoBloqueio}>
+              ⚠️ Tensão de entrada travada (inicie um novo projeto no X para
+              alterar).
+            </Text>
+          )}
         </View>
 
         <FormPrevisaoCarga
@@ -169,6 +193,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#e5e7eb",
     borderRadius: 10,
   },
+  lblSeletor: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#374151",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  valorTravadoContainer: {
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  valorTravadoTexto: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#1F2937",
+  },
   txtResumoTitulo: { fontSize: 14, fontWeight: "bold", color: "#374151" },
   resultadoContainer: { marginVertical: 10 },
   txtFeedback: {
@@ -176,5 +220,12 @@ const styles = StyleSheet.create({
     color: "#10b981",
     fontWeight: "bold",
     marginBottom: 8,
+  },
+  txtAvisoBloqueio: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 8,
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });

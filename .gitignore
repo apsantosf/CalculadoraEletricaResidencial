@@ -41,3 +41,11 @@ example
 # generated native folders
 /ios
 /android
+
+# Documentacao e backups locais
+/documentacao
+
+# Binarios gerados de build Android
+*.apk
+*.aab
+*.jar

@@ -13,23 +13,21 @@ import { LISTA_EQUIPAMENTOS } from "../../utils/listaEquipamentos";
 export default function FormTue({
   onAdicionar,
   onCalcular,
-  podeAdicionar, // <-- 1. RECEBENDO A VARIÁVEL AQUI
+  podeAdicionar,
 }: {
-  onAdicionar: (data: any) => void;
+  onAdicionar: () => void;
   onCalcular: (data: any) => void;
-  podeAdicionar: boolean; // <-- 2. DECLARANDO O TIPO DELA
+  podeAdicionar: boolean;
 }) {
   const [equipamento, setEquipamento] = useState(LISTA_EQUIPAMENTOS[0]);
   const [potencia, setPotencia] = useState(
     LISTA_EQUIPAMENTOS[0].potencia.toString(),
   );
-  const [tensao, setTensao] = useState("220");
 
   const handleCalcular = () => {
     onCalcular({
       nome: equipamento.nome,
       potencia: parseFloat(potencia),
-      tensao: parseInt(tensao),
     });
   };
 
@@ -71,23 +69,6 @@ export default function FormTue({
         }}
       />
 
-      <Text style={styles.label}>Tensão (V)</Text>
-      <View style={styles.row}>
-        {["127", "220"].map((v) => (
-          <TouchableOpacity
-            key={v}
-            style={[styles.btnTensao, tensao === v && styles.btnTensaoActive]}
-            onPress={() => {
-              setTensao(v);
-            }}
-          >
-            <Text style={tensao === v ? styles.txtActive : styles.txt}>
-              {v} V
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
       <View style={styles.containerBotoes}>
         <TouchableOpacity style={styles.botaoCalcular} onPress={handleCalcular}>
           <Text style={styles.textoBotao}>Dimensionar</Text>
@@ -96,10 +77,10 @@ export default function FormTue({
         <TouchableOpacity
           style={[
             styles.botaoAdicionar,
-            !podeAdicionar && styles.botaoDesativado, // <-- 3. MUDA A COR SE NÃO PUDER ADICIONAR
+            !podeAdicionar && styles.botaoDesativado,
           ]}
           onPress={handleAdicionar}
-          disabled={!podeAdicionar} // <-- 4. BLOQUEIA O CLIQUE AQUI
+          disabled={!podeAdicionar}
         >
           <Text style={styles.textoBotao}>Adicionar TUE</Text>
         </TouchableOpacity>
@@ -132,20 +113,8 @@ const styles = StyleSheet.create({
     borderColor: "#d1d5db",
     borderRadius: 8,
     padding: 10,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  row: { flexDirection: "row", gap: 10, marginBottom: 16 },
-  btnTensao: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  btnTensaoActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
-  txt: { color: "#374151" },
-  txtActive: { color: "#fff", fontWeight: "bold" },
   containerBotoes: { flexDirection: "row", gap: 10 },
   botaoCalcular: {
     backgroundColor: "#2563eb",

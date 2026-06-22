@@ -1,6 +1,9 @@
-//   src/app/quadro.txt
+//   src/app/quadro.tsx
 import { router } from "expo-router"; // Importado para navegação
+import { useState } from "react";
 import {
+  Modal,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -8,11 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
 import { calcularAlimentadorGeral } from "../utils/calculations";
 
 export default function TelaQuadro() {
   const { circuitos, tensaoGeral, removerCircuito, zerarProjeto } = useData();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const processarQuadroGeral = () => {
     const somaIlumTugVA = circuitos
@@ -45,19 +50,37 @@ export default function TelaQuadro() {
       texto += `• ${c.nome}${detalhe}: ${c.potenciaWatts || c.potenciaVA} ${c.potenciaWatts ? "W" : "VA"}${disj}${cabo}\n`;
     });
 
-    texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
+    texto += `\n💡 DIMENSIONAMENTO GERAL (QDC):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nTensão: ${tensaoGeral} V\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
 
     await Share.share({ message: texto });
   };
 
-  // Função para limpar projeto e retornar ao início
-  const handleNovoProjeto = () => {
+  // Função pura que zera os dados e vai para a página inicial
+  const executarNovoProjeto = () => {
     zerarProjeto();
     router.replace("/");
   };
 
+  // Botão unificado com separação segura Web / Celular
+  const handleNovoProjeto = () => {
+    if (Platform.OS === "web") {
+      const confirmou = window.confirm(
+        "Quer realmente iniciar um Novo Projeto? Isto apagará todos os dados.",
+      );
+      if (confirmou) {
+        executarNovoProjeto();
+      }
+    } else {
+      // No celular, abre nossa caixinha customizada (Modal)
+      setModalVisible(true);
+    }
+  };
+
   return (
     <View style={styles.wrapperWeb}>
+      {/* Cabeçalho padrão inserido */}
+      <CustomHeader title="Distribuição Geral (QDC)" />
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 80 }}
@@ -103,6 +126,10 @@ export default function TelaQuadro() {
                 </Text>
               </View>
               <View style={styles.linhaResumo}>
+                <Text style={styles.label}>Tensão:</Text>
+                <Text style={styles.valor}>{tensaoGeral} V</Text>
+              </View>
+              <View style={styles.linhaResumo}>
                 <Text style={styles.label}>Corrente Geral:</Text>
                 <Text style={styles.valor}>{resultadoQDC.correnteGeral} A</Text>
               </View>
@@ -126,13 +153,6 @@ export default function TelaQuadro() {
             >
               <Text style={styles.textoBotaoExportar}>🟩 Enviar Relatório</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.botaoLimpar}
-              onPress={handleNovoProjeto}
-            >
-              <Text style={styles.textoBotaoLimpar}>Novo Projeto</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.cardAvisoVazio}>
@@ -140,6 +160,41 @@ export default function TelaQuadro() {
           </View>
         )}
       </ScrollView>
+
+      {/* Caixa de diálogo Visual (Modal) para Celular */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Atenção</Text>
+            <Text style={styles.modalMessage}>
+              Quer realmente iniciar um Novo Projeto? Isto apagará todos os
+              dados.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.btnModal, styles.btnCancel]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.btnText}>Não</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btnModal, styles.btnConfirm]}
+                onPress={() => {
+                  setModalVisible(false);
+                  executarNovoProjeto();
+                }}
+              >
+                <Text style={styles.btnText}>Sim</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -207,15 +262,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   textoBotaoExportar: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
-  botaoLimpar: {
-    backgroundColor: "#ef4444",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 12,
-    marginBottom: 40,
-  },
-  textoBotaoLimpar: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
   cardAvisoVazio: {
     backgroundColor: "#e5e7eb",
     padding: 20,
@@ -224,4 +270,50 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   txtAviso: { color: "#6b7280", fontSize: 14, textAlign: "center" },
+  // Estilos puros da caixinha (Modal) do celular
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    width: 280,
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+    color: "#111827",
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#4B5563",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+  },
+  btnModal: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginHorizontal: 4,
+  },
+  btnCancel: { backgroundColor: "#9CA3AF" },
+  btnConfirm: { backgroundColor: "#EF4444" },
+  btnText: { color: "white", fontWeight: "bold", fontSize: 14 },
 });
