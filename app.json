@@ -15,7 +15,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.apsantosf.eletricaresidencial",
-      "versionCode": 16
+      "versionCode": 13
     },
     "plugins": [
       "expo-router",
