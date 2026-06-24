@@ -128,7 +128,10 @@ export default function TelaComodos() {
     <View style={styles.wrapperWeb}>
       <CustomHeader title="Previsão de Carga" />
 
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 100 }} // <-- Adiciona 100 pixels de respiro na base para afastar do rodapé
+      >
         <View style={styles.cardConfig}>
           <Text style={styles.lblSeletor}>
             Tensão de Entrada (Concessionária)
@@ -235,11 +238,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-  },
-  valorTravadoTexto: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1F2937",
   },
   valorTravadoTexto: {
     fontSize: 16,
