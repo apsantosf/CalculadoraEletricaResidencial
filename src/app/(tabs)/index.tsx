@@ -1,17 +1,17 @@
 //   src/app/index.tsx
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import CardResultado from "../components/ui/CardResultado";
-import CustomHeader from "../components/ui/CustomHeader";
-import FormPrevisaoCarga from "../components/ui/FormPrevisaoCarga";
-import SeletorBotoes from "../components/ui/SeletorBotoes";
-import { useData } from "../context/DataContext";
+import CardResultado from "../../components/ui/CardResultado";
+import CustomHeader from "../../components/ui/CustomHeader";
+import FormPrevisaoCarga from "../../components/ui/FormPrevisaoCarga";
+import SeletorBotoes from "../../components/ui/SeletorBotoes";
+import { useData } from "../../context/DataContext";
 import {
   calcularIluminacao,
   calcularPotenciaTugs,
   calcularQuantidadeTugs,
   dimensionarCircuito,
-} from "../utils/calculations";
+} from "../../utils/calculations";
 
 // Interface auxiliar para tipar o resultado e eliminar avisos de aninhamento
 interface DetalheCircuito {

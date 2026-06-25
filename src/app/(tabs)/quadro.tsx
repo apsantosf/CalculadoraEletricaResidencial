@@ -12,9 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import CustomHeader from "../components/ui/CustomHeader";
-import { useData } from "../context/DataContext";
-import { calcularAlimentadorGeral } from "../utils/calculations";
+import CustomHeader from "../../components/ui/CustomHeader";
+import { useData } from "../../context/DataContext";
+import { calcularAlimentadorGeral } from "../../utils/calculations";
 
 export default function TelaQuadro() {
   const { circuitos, tensaoGeral, removerCircuito, zerarProjeto } = useData();

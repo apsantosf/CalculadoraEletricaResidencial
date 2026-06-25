@@ -1,11 +1,11 @@
 //  src/app/tue.tsx
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import CardResultado from "../components/ui/CardResultado";
-import CustomHeader from "../components/ui/CustomHeader";
-import FormTue from "../components/ui/FormTue";
-import { useData } from "../context/DataContext";
-import { dimensionarTUE } from "../utils/calculations";
+import CardResultado from "../../components/ui/CardResultado";
+import CustomHeader from "../../components/ui/CustomHeader";
+import FormTue from "../../components/ui/FormTue";
+import { useData } from "../../context/DataContext";
+import { dimensionarTUE } from "../../utils/calculations";
 
 export default function TelaTues() {
   const { adicionarCircuitos, tokenReset, circuitos, tensaoGeral } = useData();
