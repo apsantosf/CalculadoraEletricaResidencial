@@ -1,17 +1,17 @@
 //   src/app/index.tsx
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import CardResultado from "../../components/ui/CardResultado";
-import CustomHeader from "../../components/ui/CustomHeader";
-import FormPrevisaoCarga from "../../components/ui/FormPrevisaoCarga";
-import SeletorBotoes from "../../components/ui/SeletorBotoes";
-import { useData } from "../../context/DataContext";
+import CardResultado from "../components/ui/CardResultado";
+import CustomHeader from "../components/ui/CustomHeader";
+import FormPrevisaoCarga from "../components/ui/FormPrevisaoCarga";
+import SeletorBotoes from "../components/ui/SeletorBotoes";
+import { useData } from "../context/DataContext";
 import {
   calcularIluminacao,
   calcularPotenciaTugs,
   calcularQuantidadeTugs,
   dimensionarCircuito,
-} from "../../utils/calculations";
+} from "../utils/calculations";
 
 // Interface auxiliar para tipar o resultado e eliminar avisos de aninhamento
 interface DetalheCircuito {
@@ -130,7 +130,7 @@ export default function TelaComodos() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: 100 }} // <-- Adiciona 100 pixels de respiro na base para afastar do rodapé
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }} // <-- Respiro de 100px na base para a barra flutuante
       >
         <View style={styles.cardConfig}>
           <Text style={styles.lblSeletor}>
@@ -154,8 +154,8 @@ export default function TelaComodos() {
 
           {projetoIniciado && (
             <Text style={styles.txtAvisoBloqueio}>
-              ⚠️ Tensão de entrada travada (inicie um novo projeto no X para
-              alterar).
+              ⚠️ Tensão de entrada travada. Esvazie o &quot;Quadro Geral&quot;
+              para alterar.
             </Text>
           )}
         </View>

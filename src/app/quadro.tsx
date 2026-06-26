@@ -12,9 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import CustomHeader from "../../components/ui/CustomHeader";
-import { useData } from "../../context/DataContext";
-import { calcularAlimentadorGeral } from "../../utils/calculations";
+import CustomHeader from "../components/ui/CustomHeader";
+import { useData } from "../context/DataContext";
+import { calcularAlimentadorGeral } from "../utils/calculations";
 
 export default function TelaQuadro() {
   const { circuitos, tensaoGeral, removerCircuito, zerarProjeto } = useData();
@@ -62,6 +62,19 @@ export default function TelaQuadro() {
     await Share.share({ message: texto });
   };
 
+  // Função auxiliar interna que realiza a exclusão de ambos (Luz + TUG) pelo grupoId
+  const removerCircuitosDoGrupo = (circuitoReferencia: any) => {
+    if (circuitoReferencia.grupoId) {
+      circuitos.forEach((circ: any) => {
+        if (circ.grupoId === circuitoReferencia.grupoId) {
+          removerCircuito(circ.id);
+        }
+      });
+    } else {
+      removerCircuito(circuitoReferencia.id);
+    }
+  };
+
   // 💡 FUNÇÃO ATUALIZADA: Pergunta se tem certeza antes de eliminar o cômodo inteiro (Luz + TUG)
   const handleRemoverCircuitoPar = (circuitoSelecionado: any) => {
     // Extrai o nome base do cômodo (removendo a parte técnica entre parênteses para exibir de forma limpa no alerta)
@@ -87,19 +100,6 @@ export default function TelaQuadro() {
           },
         ],
       );
-    }
-  };
-
-  // Função auxiliar interna que realiza a exclusão de ambos (Luz + TUG) pelo grupoId
-  const removerCircuitosDoGrupo = (circuitoReferencia: any) => {
-    if (circuitoReferencia.grupoId) {
-      circuitos.forEach((circ: any) => {
-        if (circ.grupoId === circuitoReferencia.grupoId) {
-          removerCircuito(circ.id);
-        }
-      });
-    } else {
-      removerCircuito(circuitoReferencia.id);
     }
   };
 
@@ -131,8 +131,18 @@ export default function TelaQuadro() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }} // Respiro para a barra flutuante
       >
+        {/* Botão de Novo Projeto adicionado de forma visível e limpa */}
+        <TouchableOpacity
+          style={styles.btnNovoProjeto}
+          onPress={handleNovoProjeto}
+        >
+          <Text style={styles.btnNovoProjetoTexto}>
+            ➕ Iniciar Novo Projeto
+          </Text>
+        </TouchableOpacity>
+
         {resultadoQDC ? (
           <View style={styles.quadroContainer}>
             <Text style={styles.subtitulo}>📋 RELAÇÃO DE CIRCUITOS</Text>
@@ -156,8 +166,12 @@ export default function TelaQuadro() {
                       )}
                     </View>
                   </View>
-                  {/* Botão de exclusão unificado para disparar a verificação */}
-                  <TouchableOpacity onPress={() => handleRemoverCircuitoPar(c)}>
+                  {/* Botão de exclusão com área de toque ampliada */}
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleRemoverCircuitoPar(c)}
+                    accessibilityLabel={`Excluir ${c.nome}`}
+                  >
                     <Text style={{ fontSize: 18 }}>❌</Text>
                   </TouchableOpacity>
                 </View>
@@ -257,6 +271,20 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
+  btnNovoProjeto: {
+    backgroundColor: "#E5E7EB",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+  },
+  btnNovoProjetoTexto: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#374151",
+  },
   subtitulo: {
     fontSize: 16,
     fontWeight: "bold",
@@ -269,16 +297,25 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
     elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   itemCircuito: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
-  nomeCircuito: { fontSize: 14, color: "#374151" },
-  detalhesLinha: { flexDirection: "row", gap: 10, marginTop: 2 },
+  deleteButton: {
+    padding: 8, // Aumenta a área de toque
+    marginLeft: 10,
+  },
+  nomeCircuito: { fontSize: 14, color: "#374151", flex: 1 },
+  detalhesLinha: { flexDirection: "row", gap: 10, marginTop: 4 },
   textoDetalhe: { fontSize: 11, color: "#6b7280", fontWeight: "600" },
   cardRelatorio: {
     backgroundColor: "#064e3b",

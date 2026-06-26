@@ -1,7 +1,13 @@
 // src/components/ui/CustomTabs.tsx
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function CustomTabs() {
   const router = useRouter();
@@ -59,22 +65,35 @@ export default function CustomTabs() {
 const styles = StyleSheet.create({
   tabBarWrapper: {
     maxWidth: 450,
-    width: "100%",
+    width: "92%",
     alignSelf: "center",
     backgroundColor: "#ffffff",
     borderRadius: 16,
     height: 70,
     paddingBottom: 10,
     paddingTop: 8,
-    marginBottom: 8,
     // Sombra elegante
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    // Mantém fixo na parte inferior da tela
     justifyContent: "center",
+
+    ...Platform.select({
+      // Comportamento ideal e fixo para navegadores web/desktop
+      web: {
+        marginBottom: 24,
+        marginTop: 8,
+      },
+      // Comportamento flutuante imune a cortes para mobile (Android/iOS)
+      default: {
+        position: "absolute",
+        bottom: 24, // Afasta 24 pixels da margem inferior, ultrapassando os botões do sistema
+        left: "4%", // Centraliza o elemento que tem width de 92%
+        right: "4%",
+      },
+    }),
   },
   tabBar: {
     flexDirection: "row",
