@@ -7,12 +7,14 @@ export interface ItemCircuito {
   tipo: "iluminacao" | "tug" | "tue";
   potenciaVA: number;
   potenciaWatts?: number;
-  detalhe?: string; // 👈 Nova propriedade para guardar observações como a quantidade de tomadas
+  detalhe?: string; // 👈 Nova propriedade para guardar observações
 }
 
 interface DataContextType {
   tensaoGeral: 127 | 220;
   setTensaoGeral: (tensao: 127 | 220) => void;
+  concessionaria: string;
+  setConcessionaria: (concessionaria: string) => void;
   circuitos: ItemCircuito[];
   adicionarCircuitos: (novos: ItemCircuito[]) => void;
   removerCircuito: (id: string) => void;
@@ -24,6 +26,8 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tensaoGeral, setTensaoGeral] = useState<127 | 220>(127);
+  // 🚀 Movido para dentro do Provider para funcionar perfeitamente
+  const [concessionaria, setConcessionaria] = useState<string>("CPFL");
   const [circuitos, setCircuitos] = useState<ItemCircuito[]>([]);
   const [tokenReset, setTokenReset] = useState<number>(0);
 
@@ -45,6 +49,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       value={{
         tensaoGeral,
         setTensaoGeral,
+        concessionaria,
+        setConcessionaria,
         circuitos,
         adicionarCircuitos,
         removerCircuito,

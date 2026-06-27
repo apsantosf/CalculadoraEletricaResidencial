@@ -1,4 +1,4 @@
-//   src/app/index.tsx
+// src/app/index.tsx
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
@@ -13,7 +13,7 @@ import {
   dimensionarCircuito,
 } from "../utils/calculations";
 
-// Interface auxiliar para tipar o resultado e eliminar avisos de aninhamento
+// Interface auxiliar para tipar o resultado
 interface DetalheCircuito {
   potencia: number;
   correnteProjeto: number;
@@ -29,10 +29,15 @@ interface ResultadoPrevisao {
 }
 
 export default function TelaComodos() {
-  const { tensaoGeral, setTensaoGeral, adicionarCircuitos, circuitos } =
-    useData();
+  const {
+    tensaoGeral,
+    setTensaoGeral,
+    concessionaria,
+    setConcessionaria,
+    adicionarCircuitos,
+    circuitos,
+  } = useData();
 
-  // Adicionada a tipagem estruturada no useState
   const [resultado, setResultado] = useState<ResultadoPrevisao | null>(null);
 
   // Conta cômodos pelo tipo iluminacao
@@ -71,7 +76,6 @@ export default function TelaComodos() {
     );
     const circTug = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
 
-    // Gerado o identificador único e seguro para o par (Luz + TUG)
     const grupoComodoId = Math.random().toString();
 
     adicionarCircuitos([
@@ -100,10 +104,9 @@ export default function TelaComodos() {
     setResultado(null);
   };
 
-  // Verifica se o projeto já possui circuitos para travar a tensão geral
+  // Verifica se o projeto já possui circuitos para travar as configurações
   const projetoIniciado = circuitos && circuitos.length > 0;
 
-  // Variáveis seguras tipadas puramente como string garantem que o CardResultado não reclame de tipagem
   const ilumPotencia = resultado?.iluminacao?.potencia
     ? `${resultado.iluminacao.potencia} VA`
     : "-";
@@ -130,7 +133,7 @@ export default function TelaComodos() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }} // <-- Respiro de 100px na base para a barra flutuante
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
         <View style={styles.cardConfig}>
           <Text style={styles.lblSeletor}>
@@ -144,7 +147,7 @@ export default function TelaComodos() {
             <SeletorBotoes
               label=""
               valorSelecionado={tensaoGeral}
-              onSelecionar={setTensaoGeral}
+              onSelecionar={setTensaoGeral as any}
               opcoes={[
                 { id: 127, label: "127 V" },
                 { id: 220, label: "220 V" },
@@ -152,10 +155,42 @@ export default function TelaComodos() {
             />
           )}
 
+          {/* 🚀 SELETOR UNIFICADO DE CONCESSIONÁRIAS */}
+          <Text
+            style={[
+              styles.lblSeletor,
+              {
+                marginTop: 16,
+                borderTopWidth: 1,
+                borderColor: "#E5E7EB",
+                paddingTop: 12,
+              },
+            ]}
+          >
+            Distribuidora de Energia
+          </Text>
+          {projetoIniciado ? (
+            <View style={styles.valorTravadoContainer}>
+              <Text style={styles.valorTravadoTexto}>{concessionaria}</Text>
+            </View>
+          ) : (
+            <SeletorBotoes
+              label=""
+              valorSelecionado={concessionaria}
+              onSelecionar={setConcessionaria}
+              opcoes={[
+                { id: "CPFL", label: "CPFL" },
+                { id: "ENEL", label: "Enel" },
+                { id: "NEOENERGIA", label: "Neoenergia" },
+                { id: "EDP", label: "EDP" },
+              ]}
+            />
+          )}
+
           {projetoIniciado && (
             <Text style={styles.txtAvisoBloqueio}>
-              ⚠️ Tensão de entrada travada. Esvazie o &quot;Quadro Geral&quot;
-              para alterar.
+              ⚠️ Configurações travadas. Esvazie o &quot;Quadro Geral&quot; para
+              alterar.
             </Text>
           )}
         </View>
