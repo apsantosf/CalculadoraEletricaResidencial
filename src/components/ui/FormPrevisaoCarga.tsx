@@ -8,8 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useData } from "../../context/DataContext";
-import { LISTA_COMODOS } from "../../utils/listaComodos";
 import { applyPickerStyles } from "./pickerStyles";
 
 export interface AmbientePayload {
@@ -24,44 +22,70 @@ interface FormProps {
   onCalcular?: (data: AmbientePayload) => void;
 }
 
+// Lista de opções para o Picker contendo o nome amigável e o tipo normativo
+const OPCOES_COMODOS = [
+  { label: "Sala de Estar", tipo: "sala" },
+  { label: "Quarto", tipo: "sala" },
+  { label: "Cozinha", tipo: "cozinha" },
+  { label: "Banheiro", tipo: "banheiro" },
+  { label: "Área de Serviço", tipo: "cozinha" },
+];
+
 export default function FormPrevisaoCarga({
   onAdicionar,
   onCalcular,
 }: FormProps) {
-  const { tensaoGeral } = useData();
+  const [nomeAmbiente, setNomeAmbiente] = useState("Sala de Estar");
+  const [tipoNormativo, setTipoNormativo] = useState("sala");
   const [area, setArea] = useState("");
   const [perimetro, setPerimetro] = useState("");
-  const [ambiente, setAmbiente] = useState(LISTA_COMODOS[0]);
   const [calcRealizado, setCalcRealizado] = useState(false);
 
   useEffect(() => {
     applyPickerStyles();
   }, []);
 
+  const handleSelecaoPicker = (itemValue: string) => {
+    const selecao = OPCOES_COMODOS.find((c) => c.label === itemValue);
+    if (selecao) {
+      setNomeAmbiente(selecao.label);
+      setTipoNormativo(selecao.tipo);
+      setCalcRealizado(false);
+    }
+  };
+
   const handleCalcular = () => {
     const nArea = parseFloat(area.replace(",", "."));
     const nPerim = parseFloat(perimetro.replace(",", "."));
-    if (isNaN(nArea) || isNaN(nPerim))
+
+    if (isNaN(nArea) || isNaN(nPerim)) {
       return alert("Preencha Área e Perímetro corretamente.");
+    }
+    if (!nomeAmbiente.trim()) {
+      return alert("Informe o nome do ambiente.");
+    }
+
     setCalcRealizado(true);
-    if (onCalcular)
+    if (onCalcular) {
       onCalcular({
-        nome: ambiente.nome,
-        tipo: ambiente.tipo,
+        nome: nomeAmbiente,
+        tipo: tipoNormativo,
         area: nArea,
         perimetro: nPerim,
       });
+    }
   };
 
   const handleAdicionar = () => {
     if (onAdicionar) {
       onAdicionar({
-        nome: ambiente.nome,
-        tipo: ambiente.tipo,
+        nome: nomeAmbiente,
+        tipo: tipoNormativo,
         area: parseFloat(area.replace(",", ".")),
         perimetro: parseFloat(perimetro.replace(",", ".")),
       });
     }
+
     setCalcRealizado(false);
     setArea("");
     setPerimetro("");
@@ -69,26 +93,33 @@ export default function FormPrevisaoCarga({
 
   return (
     <View style={styles.cardForm}>
-      <Text style={styles.label}>Selecione o Ambiente</Text>
+      <Text style={styles.label}>
+        Sugestões de Ambientes (Normativo NBR 5410)
+      </Text>
+
+      {/* 🚀 PICKER NATIVO RESTAURADO */}
       <View style={styles.pickerContainer}>
         <Picker
-          selectedValue={ambiente.nome}
-          onValueChange={(itemValue) => {
-            const ambienteSelecionado = LISTA_COMODOS.find(
-              (c) => c.nome === itemValue,
-            );
-            if (ambienteSelecionado) {
-              setAmbiente(ambienteSelecionado);
-              setCalcRealizado(false);
-            }
-          }}
+          selectedValue={nomeAmbiente}
+          onValueChange={handleSelecaoPicker}
           style={styles.picker}
         >
-          {LISTA_COMODOS.map((item, index) => (
-            <Picker.Item key={index} label={item.nome} value={item.nome} />
+          {OPCOES_COMODOS.map((item, index) => (
+            <Picker.Item key={index} label={item.label} value={item.label} />
           ))}
         </Picker>
       </View>
+
+      <Text style={styles.label}>Nome do Ambiente (Livre / Editável)</Text>
+      <TextInput
+        style={styles.inputNome}
+        value={nomeAmbiente}
+        onChangeText={(text) => {
+          setNomeAmbiente(text);
+          setCalcRealizado(false);
+        }}
+        placeholder="Ex: Sala de TV Exclusiva"
+      />
 
       <View style={styles.row}>
         <View style={styles.col}>
@@ -97,7 +128,11 @@ export default function FormPrevisaoCarga({
             style={styles.input}
             keyboardType="numeric"
             value={area}
-            onChangeText={setArea}
+            onChangeText={(text) => {
+              setArea(text);
+              setCalcRealizado(false);
+            }}
+            placeholder="0.0"
           />
         </View>
         <View style={styles.col}>
@@ -106,7 +141,11 @@ export default function FormPrevisaoCarga({
             style={styles.input}
             keyboardType="numeric"
             value={perimetro}
-            onChangeText={setPerimetro}
+            onChangeText={(text) => {
+              setPerimetro(text);
+              setCalcRealizado(false);
+            }}
+            placeholder="0.0"
           />
         </View>
       </View>
@@ -138,7 +177,27 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     elevation: 2,
   },
-  label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 4 },
+  label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
+  pickerContainer: {
+    backgroundColor: "#fefce8",
+    borderWidth: 2,
+    borderColor: "#3b82f6",
+    borderRadius: 8,
+    marginBottom: 14,
+    overflow: "hidden",
+  },
+  picker: { height: 50, color: "#1e3a8a", backgroundColor: "#fefce8" },
+  inputNome: {
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#1F2937",
+    marginBottom: 14,
+  },
   input: {
     backgroundColor: "#f9fafb",
     borderWidth: 1,
@@ -146,16 +205,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 8,
+    fontSize: 15,
   },
-  pickerContainer: {
-    backgroundColor: "#fefce8",
-    borderWidth: 2,
-    borderColor: "#2563eb",
-    borderRadius: 8,
-    marginBottom: 12,
-    overflow: "hidden",
-  },
-  picker: { height: 50, color: "#2563eb", backgroundColor: "#fefce8" },
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
   containerBotoes: {

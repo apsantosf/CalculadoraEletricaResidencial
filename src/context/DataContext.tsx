@@ -1,23 +1,26 @@
 // src/context/DataContext.tsx
 import React, { createContext, useContext, useState } from "react";
-
-export interface ItemCircuito {
-  id: string;
-  nome: string;
-  tipo: "iluminacao" | "tug" | "tue";
-  potenciaVA: number;
-  potenciaWatts?: number;
-  detalhe?: string; // 👈 Nova propriedade para guardar observações
-}
+import { Comodo, Dispositivo } from "../utils/templates";
 
 interface DataContextType {
   tensaoGeral: 127 | 220;
   setTensaoGeral: (tensao: 127 | 220) => void;
   concessionaria: string;
   setConcessionaria: (concessionaria: string) => void;
-  circuitos: ItemCircuito[];
-  adicionarCircuitos: (novos: ItemCircuito[]) => void;
-  removerCircuito: (id: string) => void;
+  comodos: Comodo[];
+  adicionarComodo: (novoComodo: Comodo) => void;
+  removerComodo: (id: string) => void;
+  atualizarComodo: (id: string, dados: Partial<Comodo>) => void;
+  adicionarDispositivo: (
+    comodoId: string,
+    dispositivo: Omit<Dispositivo, "id">,
+  ) => void;
+  atualizarDispositivo: (
+    comodoId: string,
+    dispositivoId: string,
+    dados: Partial<Dispositivo>,
+  ) => void;
+  removerDispositivo: (comodoId: string, dispositivoId: string) => void;
   zerarProjeto: () => void;
   tokenReset: number;
 }
@@ -26,21 +29,70 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tensaoGeral, setTensaoGeral] = useState<127 | 220>(127);
-  // 🚀 Movido para dentro do Provider para funcionar perfeitamente
   const [concessionaria, setConcessionaria] = useState<string>("CPFL");
-  const [circuitos, setCircuitos] = useState<ItemCircuito[]>([]);
+  const [comodos, setComodos] = useState<Comodo[]>([]);
   const [tokenReset, setTokenReset] = useState<number>(0);
 
-  const adicionarCircuitos = (novos: ItemCircuito[]) => {
-    setCircuitos((prev) => [...prev, ...novos]);
+  const adicionarComodo = (novoComodo: Comodo) => {
+    setComodos((prev) => [...prev, novoComodo]);
   };
 
-  const removerCircuito = (id: string) => {
-    setCircuitos((prev) => prev.filter((c) => c.id !== id));
+  const removerComodo = (id: string) => {
+    setComodos((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const atualizarComodo = (id: string, dados: Partial<Comodo>) => {
+    setComodos((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...dados } : c)),
+    );
+  };
+
+  const adicionarDispositivo = (
+    comodoId: string,
+    dispositivo: Omit<Dispositivo, "id">,
+  ) => {
+    const novo = { ...dispositivo, id: Math.random().toString() };
+    setComodos((prev) =>
+      prev.map((c) =>
+        c.id === comodoId
+          ? { ...c, dispositivos: [...c.dispositivos, novo] }
+          : c,
+      ),
+    );
+  };
+
+  const atualizarDispositivo = (
+    comodoId: string,
+    dispositivoId: string,
+    dados: Partial<Dispositivo>,
+  ) => {
+    setComodos((prev) =>
+      prev.map((c) => {
+        if (c.id !== comodoId) return c;
+        return {
+          ...c,
+          dispositivos: c.dispositivos.map((d) =>
+            d.id === dispositivoId ? { ...d, ...dados } : d,
+          ),
+        };
+      }),
+    );
+  };
+
+  const removerDispositivo = (comodoId: string, dispositivoId: string) => {
+    setComodos((prev) =>
+      prev.map((c) => {
+        if (c.id !== comodoId) return c;
+        return {
+          ...c,
+          dispositivos: c.dispositivos.filter((d) => d.id !== dispositivoId),
+        };
+      }),
+    );
   };
 
   const zerarProjeto = () => {
-    setCircuitos([]);
+    setComodos([]);
     setTokenReset((prev) => prev + 1);
   };
 
@@ -51,9 +103,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setTensaoGeral,
         concessionaria,
         setConcessionaria,
-        circuitos,
-        adicionarCircuitos,
-        removerCircuito,
+        comodos,
+        adicionarComodo,
+        removerComodo,
+        atualizarComodo,
+        adicionarDispositivo,
+        atualizarDispositivo,
+        removerDispositivo,
         zerarProjeto,
         tokenReset,
       }}

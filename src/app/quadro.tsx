@@ -1,4 +1,4 @@
-//    src/app/quadro.tsx
+// src/app/quadro.tsx
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -16,46 +16,48 @@ import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
 import { calcularAlimentadorGeral } from "../utils/calculations";
 
-// 🚀 Função utilitária para aplicar o fator de demanda da concessionária nos TUEs
-// src/app/quadro.tsx
+// Função utilitária para aplicar o fator de demanda da concessionária nos TUEs
+const aplicarDemandaTues = (
+  tueWatts: number[],
+  concessionaria: string,
+): number => {
+  if (tueWatts.length === 0) return 0;
+  let fator = 1.0;
+  if (tueWatts.length === 2) fator = 0.9;
+  else if (tueWatts.length >= 3 && tueWatts.length <= 5) fator = 0.8;
+  else if (tueWatts.length >= 6) fator = 0.7;
 
-const aplicarDemandaTues = (tueWatts: number[], concessionaria: string): number => {
-    if (tueWatts.length === 0) return 0;
-
-    // A tabela progressiva padrão aplica-se muito bem a CPFL, Enel e Neoenergia
-    let fator = 1.0;
-    if (tueWatts.length === 2) fator = 0.90;
-    else if (tueWatts.length >= 3 && tueWatts.length <= 5) fator = 0.80;
-    else if (tueWatts.length >= 6) fator = 0.70;
-
-    // Exemplo de ressalva técnica: a norma EDP pode usar coeficientes ligeiramente distintos se desejar customizar
-    if (concessionaria === "EDP") {
-        // Regra específica da EDP, se houver, ex: carga de aquecimento multiplicada por 0.8 de imediato
-    }
-
-    const somaTues = tueWatts.reduce((acc, curr) => acc + curr, 0);
-    return somaTues * fator;
+  const somaTues = tueWatts.reduce((acc, curr) => acc + curr, 0);
+  return somaTues * fator;
 };
 
 export default function TelaQuadro() {
-  const {
-    circuitos,
-    tensaoGeral,
-    concessionaria,
-    removerCircuito,
-    zerarProjeto,
-  } = useData();
+  const { comodos, tensaoGeral, concessionaria, removerComodo, zerarProjeto } =
+    useData();
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Auxiliares para extrair as potências de todos os cômodos
+  const calcularPotenciasAtuais = () => {
+    let somaIlumTugVA = 0;
+    let listaWattsTue: number[] = [];
+
+    comodos.forEach((c) => {
+      c.dispositivos.forEach((d) => {
+        const potTotal = d.potencia * d.quantidade;
+        if (d.tipo === "iluminacao" || d.tipo === "tug") {
+          somaIlumTugVA += potTotal;
+        } else if (d.tipo === "tue") {
+          listaWattsTue.push(potTotal);
+        }
+      });
+    });
+
+    return { somaIlumTugVA, listaWattsTue };
+  };
 
   // 1. Dimensionamento Real (Instalado)
   const processarQuadroGeralInstalado = () => {
-    const somaIlumTugVA = circuitos
-      .filter((c) => c.tipo === "iluminacao" || c.tipo === "tug")
-      .reduce((acc, curr) => acc + curr.potenciaVA, 0);
-    const listaWattsTue = circuitos
-      .filter((c) => c.tipo === "tue" && c.potenciaWatts !== undefined)
-      .map((c) => c.potenciaWatts as number);
-
+    const { somaIlumTugVA, listaWattsTue } = calcularPotenciasAtuais();
     return calcularAlimentadorGeral({
       potenciaIlumTugVA: somaIlumTugVA,
       potenciasTueWatts: listaWattsTue,
@@ -63,35 +65,24 @@ export default function TelaQuadro() {
     });
   };
 
-  // 2. Dimensionamento de Demanda (Considerando a concessionária)
+  // 2. Dimensionamento de Demanda
   const processarQuadroGeralDemanda = () => {
-    const ilumTugInstaladoVA = circuitos
-      .filter((c) => c.tipo === "iluminacao" || c.tipo === "tug")
-      .reduce((acc, curr) => acc + curr.potenciaVA, 0);
-
-    const listaWattsTue = circuitos
-      .filter((c) => c.tipo === "tue" && c.potenciaWatts !== undefined)
-      .map((c) => c.potenciaWatts as number);
-
-    // Aplica o fator de demanda da concessionária nos TUEs
+    const { somaIlumTugVA, listaWattsTue } = calcularPotenciasAtuais();
     const tueDemandaWatts = aplicarDemandaTues(listaWattsTue, concessionaria);
+    const potenciaTotalDemandaVA = somaIlumTugVA + tueDemandaWatts;
 
-    // Potência total de demanda (Iluminação/TUGs mantêm 100% + TUEs com demanda)
-    const potenciaTotalDemandaVA = ilumTugInstaladoVA + tueDemandaWatts;
-
-    // Recalcula o alimentador geral usando a potência de demanda calculada
-    // Assumindo fator de potência unitário ou médio equivalente para a corrente de entrada
     return calcularAlimentadorGeral({
       potenciaIlumTugVA: potenciaTotalDemandaVA,
-      potenciasTueWatts: [], // Já somado na potência total
+      potenciasTueWatts: [],
       tensao: tensaoGeral,
     });
   };
 
-  const resultadoQDC =
-    circuitos.length > 0 ? processarQuadroGeralInstalado() : null;
-  const resultadoDemanda =
-    circuitos.length > 0 ? processarQuadroGeralDemanda() : null;
+  const projetoTemDados = comodos && comodos.length > 0;
+  const resultadoQDC = projetoTemDados ? processarQuadroGeralInstalado() : null;
+  const resultadoDemanda = projetoTemDados
+    ? processarQuadroGeralDemanda()
+    : null;
 
   const handleCompartilharRelatorio = async () => {
     if (!resultadoQDC || !resultadoDemanda) return;
@@ -99,82 +90,42 @@ export default function TelaQuadro() {
     let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
     texto += `📐 Baseado na Norma NBR 5410:2004 e Distribuidora (${concessionaria})\n`;
     texto += `--------------------------------------\n\n`;
-    texto += `📋 RELAÇÃO DE CIRCUITOS:\n`;
+    texto += `📋 RESUMO POR CÔMODOS:\n`;
 
-    circuitos.forEach((c: any) => {
-      const detalhe = c.detalhe ? ` (${c.detalhe})` : "";
-      const disj = c?.disjuntor ? ` | Disj: ${c.disjuntor}A` : "";
-      const cabo = c?.bitola ? ` | Cabo: ${c.bitola}mm²` : "";
-
-      const potenciaValor =
-        c.potenciaWatts && c.potenciaWatts > 0 ? c.potenciaWatts : c.potenciaVA;
-      const potenciaUnidade =
-        c.potenciaWatts && c.potenciaWatts > 0 ? "W" : "VA";
-
-      texto += `• ${c.nome}${detalhe}: ${potenciaValor} ${potenciaUnidade}${disj}${cabo}\n`;
+    comodos.forEach((c) => {
+      texto += `\n• ${c.nome}:\n`;
+      c.dispositivos.forEach((d) => {
+        texto += `  - ${d.quantidade}x ${d.nome} (${d.potencia} ${d.unidade})\n`;
+      });
     });
 
     texto += `\n💡 DIMENSIONAMENTO GERAL (INSTALADO):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nTensão: ${tensaoGeral} V\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
-
     texto += `\n\n🏢 PADRÃO DE ENTRADA (CONCESSIONÁRIA - ${concessionaria}):\nDemanda Calculada: ${resultadoDemanda.potenciaTotalVA} VA\nCorrente de Demanda: ${resultadoDemanda.correnteGeral} A\nCabo do Medidor: ${resultadoDemanda.caboGeral} mm²\nDisjuntor Geral (Entrada): ${resultadoDemanda.disjuntorGeral} A`;
 
     await Share.share({ message: texto });
   };
 
-  const removerCircuitosDoGrupo = (circuitoReferencia: any) => {
-    if (circuitoReferencia.grupoId) {
-      circuitos.forEach((circ: any) => {
-        if (circ.grupoId === circuitoReferencia.grupoId) {
-          removerCircuito(circ.id);
-        }
-      });
-    } else {
-      removerCircuito(circuitoReferencia.id);
-    }
-  };
-
-  const handleRemoverCircuitoPar = (circuitoSelecionado: any) => {
-    const nomeComodo = circuitoSelecionado.nome.split(" (")[0] || "este cômodo";
-
+  const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
     if (Platform.OS === "web") {
       const confirmou = window.confirm(
-        `Tem certeza que vai excluir o cômodo "${nomeComodo}"?`,
+        `Tem certeza que vai excluir "${nomeComodo}"?`,
       );
-      if (confirmou) {
-        removerCircuitosDoGrupo(circuitoSelecionado);
-      }
+      if (confirmou) removerComodo(comodoId);
     } else {
-      Alert.alert(
-        "Excluir Cômodo",
-        `Tem certeza que vai excluir o cômodo "${nomeComodo}"?`,
-        [
-          { text: "Não", style: "cancel" },
-          {
-            text: "Sim",
-            style: "destructive",
-            onPress: () => removerCircuitosDoGrupo(circuitoSelecionado),
-          },
-        ],
-      );
+      Alert.alert("Excluir", `Tem certeza que vai excluir "${nomeComodo}"?`, [
+        { text: "Não", style: "cancel" },
+        {
+          text: "Sim",
+          style: "destructive",
+          onPress: () => removerComodo(comodoId),
+        },
+      ]);
     }
   };
 
   const executarNovoProjeto = () => {
     zerarProjeto();
     router.replace("/");
-  };
-
-  const handleNovoProjeto = () => {
-    if (Platform.OS === "web") {
-      const confirmou = window.confirm(
-        "Quer realmente iniciar um Novo Projeto? Isto apagará todos os dados.",
-      );
-      if (confirmou) {
-        executarNovoProjeto();
-      }
-    } else {
-      setModalVisible(true);
-    }
   };
 
   return (
@@ -185,42 +136,24 @@ export default function TelaQuadro() {
         style={styles.container}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
-        <TouchableOpacity
-          style={styles.btnNovoProjeto}
-          onPress={handleNovoProjeto}
-        >
-          <Text style={styles.btnNovoProjetoTexto}>
-            ➕ Iniciar Novo Projeto
-          </Text>
-        </TouchableOpacity>
-
         {resultadoQDC && resultadoDemanda ? (
           <View style={styles.quadroContainer}>
-            <Text style={styles.subtitulo}>📋 RELAÇÃO DE CIRCUITOS</Text>
+            <Text style={styles.subtitulo}>📋 RELAÇÃO DE CÔMODOS</Text>
+
             <View style={styles.cardLista}>
-              {circuitos.map((c: any) => (
+              {comodos.map((c) => (
                 <View key={c.id} style={styles.itemCircuito}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.nomeCircuito}>
-                      {c.nome} {c.detalhe ? `(${c.detalhe})` : ""}
-                    </Text>
+                    <Text style={styles.nomeCircuito}>{c.nome}</Text>
                     <View style={styles.detalhesLinha}>
-                      {c.disjuntor && (
-                        <Text style={styles.textoDetalhe}>
-                          Disj: {c.disjuntor}A
-                        </Text>
-                      )}
-                      {c.bitola && (
-                        <Text style={styles.textoDetalhe}>
-                          Cabo: {c.bitola}mm²
-                        </Text>
-                      )}
+                      <Text style={styles.textoDetalhe}>
+                        {c.dispositivos.length} equipamento(s) vinculado(s)
+                      </Text>
                     </View>
                   </View>
                   <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() => handleRemoverCircuitoPar(c)}
-                    accessibilityLabel={`Excluir ${c.nome}`}
+                    onPress={() => handleRemoverComodoAlerta(c.id, c.nome)}
                   >
                     <Text style={{ fontSize: 18 }}>❌</Text>
                   </TouchableOpacity>
@@ -228,7 +161,7 @@ export default function TelaQuadro() {
               ))}
             </View>
 
-            {/* 💡 DIMENSIONAMENTO DAS INSTALAÇÕES (INTERNO - QDC) */}
+            {/* DIMENSIONAMENTO DAS INSTALAÇÕES (INTERNO - QDC) */}
             <View style={styles.cardRelatorio}>
               <Text style={styles.tituloRelatorio}>
                 💡 QUADRO DE DISTRIBUIÇÃO (QDC) - INSTALADO:
@@ -261,7 +194,7 @@ export default function TelaQuadro() {
               </View>
             </View>
 
-            {/* 🏢 DIMENSIONAMENTO DE DEMANDA (PADRÃO DE ENTRADA - CONCESSIONÁRIA) */}
+            {/* DIMENSIONAMENTO DE DEMANDA (PADRÃO DE ENTRADA) */}
             <View
               style={[styles.cardRelatorio, { backgroundColor: "#312e81" }]}
             >
@@ -303,7 +236,9 @@ export default function TelaQuadro() {
           </View>
         ) : (
           <View style={styles.cardAvisoVazio}>
-            <Text style={styles.txtAviso}>Nenhum circuito cadastrado.</Text>
+            <Text style={styles.txtAviso}>
+              Nenhum cômodo ou circuito cadastrado.
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -354,27 +289,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  btnNovoProjeto: {
-    backgroundColor: "#E5E7EB",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-  },
-  btnNovoProjetoTitle: {
-    fontSize: 12,
-    color: "#6B7280",
-    textAlign: "center",
-    fontStyle: "italic",
-    marginBottom: 8,
-  },
-  btnNovoProjetoTexto: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#374151",
-  },
+  quadroContainer: { paddingBottom: 20 },
   subtitulo: {
     fontSize: 16,
     fontWeight: "bold",
@@ -400,13 +315,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
   },
-  deleteButton: {
-    padding: 8,
-    marginLeft: 10,
-  },
-  nomeCircuito: { fontSize: 14, color: "#374151", flex: 1 },
+  deleteButton: { padding: 8, marginLeft: 10 },
+  nomeCircuito: { fontSize: 14, color: "#374151", flex: 1, fontWeight: "600" },
   detalhesLinha: { flexDirection: "row", gap: 10, marginTop: 4 },
-  textoDetalhe: { fontSize: 11, color: "#6b7280", fontWeight: "600" },
+  textoDetalhe: { fontSize: 12, color: "#6b7280" },
   cardRelatorio: {
     backgroundColor: "#064e3b",
     padding: 16,

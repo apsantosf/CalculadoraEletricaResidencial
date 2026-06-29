@@ -12,8 +12,8 @@ import {
   calcularQuantidadeTugs,
   dimensionarCircuito,
 } from "../utils/calculations";
+import { Dispositivo, TEMPLATES_COMODOS } from "../utils/templates";
 
-// Interface auxiliar para tipar o resultado
 interface DetalheCircuito {
   potencia: number;
   correnteProjeto: number;
@@ -34,16 +34,14 @@ export default function TelaComodos() {
     setTensaoGeral,
     concessionaria,
     setConcessionaria,
-    adicionarCircuitos,
-    circuitos,
+    adicionarComodo,
+    comodos,
   } = useData();
 
   const [resultado, setResultado] = useState<ResultadoPrevisao | null>(null);
 
-  // Conta cômodos pelo tipo iluminacao
-  const totalComodos = (circuitos || []).filter(
-    (c) => c.tipo === "iluminacao",
-  ).length;
+  // Agora a contagem de cômodos é direta pelo tamanho da lista
+  const totalComodos = comodos ? comodos.length : 0;
 
   const handleCalcularOficial = (dados: any) => {
     const potIluminacao = calcularIluminacao(dados.area);
@@ -69,43 +67,68 @@ export default function TelaComodos() {
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
     const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
 
-    const circIlum = dimensionarCircuito(
-      potIluminacao,
-      tensaoGeral,
-      "iluminacao",
-    );
-    const circTug = dimensionarCircuito(potTugs, tensaoGeral, "tomada");
+    // Identifica se há um template correspondente (ex: 'cozinha', 'banheiro') ou usa o genérico
+    const chaveTemplate = TEMPLATES_COMODOS[dados.tipo?.toLowerCase()]
+      ? dados.tipo.toLowerCase()
+      : "sala";
+    const template = TEMPLATES_COMODOS[chaveTemplate];
 
-    const grupoComodoId = Math.random().toString();
+    // Monta a lista de dispositivos injetando os cálculos recomendados da NBR 5410 como padrão editável
+    const dispositivosPreenchidos: Dispositivo[] = (
+      template.dispositivosPadrao || []
+    ).map((disp) => {
+      let potenciaFinal = disp.potencia;
+      let qtdFinal = disp.quantidade;
 
-    adicionarCircuitos([
-      {
+      if (disp.tipo === "iluminacao") potenciaFinal = potIluminacao;
+      if (disp.tipo === "tug") {
+        qtdFinal = qtdTugs;
+        potenciaFinal = potTugs;
+      }
+
+      return {
+        ...disp,
         id: Math.random().toString(),
-        nome: `${dados.nome} (Luz - ${potIluminacao}W - ${tensaoGeral}V)`,
-        grupoId: grupoComodoId,
-        tipo: "iluminacao",
-        potenciaVA: potIluminacao,
-        potenciaWatts: potIluminacao,
-        disjuntor: circIlum.disjuntor,
-        bitola: circIlum.secaoCabo,
-      },
-      {
-        id: Math.random().toString(),
-        nome: `${dados.nome} (TUG - ${potTugs}VA - ${tensaoGeral}V)`,
-        grupoId: grupoComodoId,
-        tipo: "tug",
-        potenciaVA: potTugs,
-        potenciaWatts: 0,
-        detalhe: `${qtdTugs} tomadas`,
-        disjuntor: circTug.disjuntor,
-        bitola: circTug.secaoCabo,
-      },
-    ]);
+        potencia: potenciaFinal,
+        quantidade: qtdFinal,
+      };
+    });
+
+    // Se o template padrão não possuir itens, garante a inserção mínima calculada
+    if (dispositivosPreenchidos.length === 0) {
+      dispositivosPreenchidos.push(
+        {
+          id: Math.random().toString(),
+          nome: "Iluminação",
+          tipo: "iluminacao",
+          potencia: potIluminacao,
+          unidade: "VA",
+          quantidade: 1,
+        },
+        {
+          id: Math.random().toString(),
+          nome: "Tomadas Gerais",
+          tipo: "tug",
+          potencia: potTugs,
+          unidade: "VA",
+          quantidade: qtdTugs,
+        },
+      );
+    }
+
+    // Salva o objeto estruturado do cômodo no contexto global
+    adicionarComodo({
+      id: Math.random().toString(),
+      nome: dados.nome || template.nome,
+      area: Number(dados.area) || 0,
+      perimetro: Number(dados.perimetro) || 0,
+      dispositivos: dispositivosPreenchidos,
+    });
+
     setResultado(null);
   };
 
-  // Verifica se o projeto já possui circuitos para travar as configurações
-  const projetoIniciado = circuitos && circuitos.length > 0;
+  const projetoIniciado = comodos && comodos.length > 0;
 
   const ilumPotencia = resultado?.iluminacao?.potencia
     ? `${resultado.iluminacao.potencia} VA`
@@ -155,7 +178,6 @@ export default function TelaComodos() {
             />
           )}
 
-          {/* 🚀 SELETOR UNIFICADO DE CONCESSIONÁRIAS */}
           <Text
             style={[
               styles.lblSeletor,
@@ -203,7 +225,6 @@ export default function TelaComodos() {
         {resultado && (
           <View style={styles.resultadoContainer}>
             <Text style={styles.txtFeedback}>✅ {resultado.nome}</Text>
-
             <CardResultado
               titulo="💡 Iluminação"
               corBorda="#208AEF"
@@ -213,7 +234,6 @@ export default function TelaComodos() {
                 { label: "Cabo", valor: ilumCabo },
               ]}
             />
-
             <CardResultado
               titulo="🔌 Tomadas"
               corBorda="#FF9500"
@@ -274,11 +294,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  valorTravadoTexto: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#1F2937",
-  },
+  valorTravadoTexto: { fontSize: 16, fontWeight: "bold", color: "#1F2937" },
   txtResumoTitulo: { fontSize: 14, fontWeight: "bold", color: "#374151" },
   resultadoContainer: { marginVertical: 10 },
   txtFeedback: {

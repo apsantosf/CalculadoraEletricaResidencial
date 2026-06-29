@@ -1,4 +1,4 @@
-//  src/app/tue.tsx
+// src/app/tue.tsx
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CardResultado from "../components/ui/CardResultado";
@@ -8,11 +8,13 @@ import { useData } from "../context/DataContext";
 import { dimensionarTUE } from "../utils/calculations";
 
 export default function TelaTues() {
-  const { adicionarCircuitos, tokenReset, circuitos, tensaoGeral } = useData();
+  const { adicionarComodo, tokenReset, comodos, tensaoGeral } = useData();
   const [resultadoTue, setResultadoTue] = useState<any>(null);
 
-  // Filtra os TUEs já adicionados ao quadro
-  const tuesCadastrados = circuitos.filter((c) => c.tipo === "tue");
+  // Filtra os TUEs já adicionados ao quadro varrendo todos os cômodos e dispositivos
+  const tuesCadastrados = comodos
+    ? comodos.flatMap((c) => c.dispositivos).filter((d) => d.tipo === "tue")
+    : [];
 
   useEffect(() => {
     setResultadoTue(null);
@@ -33,21 +35,27 @@ export default function TelaTues() {
   const handleAdicionarTue = () => {
     if (!resultadoTue) return;
 
-    adicionarCircuitos([
-      {
-        id: Math.random().toString(),
-        nome: `${resultadoTue.nome} (${resultadoTue.potencia}W - ${tensaoGeral}V)`,
-        tipo: "tue",
-        potenciaVA: resultadoTue.potenciaVA,
-        potenciaWatts: resultadoTue.potencia,
-        disjuntor: resultadoTue.disjuntor,
-        bitola: resultadoTue.secaoCabo,
-      },
-    ]);
+    // Cria um "cômodo" exclusivo para comportar esse circuito dedicado
+    adicionarComodo({
+      id: Math.random().toString(),
+      nome: `Circuito Dedicado: ${resultadoTue.nome}`,
+      area: 0,
+      perimetro: 0,
+      dispositivos: [
+        {
+          id: Math.random().toString(),
+          nome: resultadoTue.nome,
+          tipo: "tue",
+          potencia: resultadoTue.potencia,
+          unidade: "W",
+          quantidade: 1,
+        },
+      ],
+    });
     setResultadoTue(null);
   };
 
-  // VERIFICAÇÃO DE BLOQUEIO: Se a tensão geral não foi selecionada (ou seja, diferente de 127 ou 220), bloqueia a aba.
+  // VERIFICAÇÃO DE BLOQUEIO: Se a tensão geral não foi selecionada
   const tensaoNaoDefinida = tensaoGeral !== 127 && tensaoGeral !== 220;
 
   return (
@@ -86,7 +94,7 @@ export default function TelaTues() {
                   items={[
                     {
                       label: "Potência",
-                      valor: `${resultadoTue.potenciaVA} VA`,
+                      valor: `${resultadoTue.potencia} W`,
                     },
                     {
                       label: "Corrente",
@@ -122,10 +130,7 @@ export default function TelaTues() {
 }
 
 const styles = StyleSheet.create({
-  wrapperWeb: {
-    flex: 1,
-    backgroundColor: "#f3f4f6",
-  },
+  wrapperWeb: { flex: 1, backgroundColor: "#f3f4f6" },
   container: {
     flex: 1,
     backgroundColor: "#f3f4f6",
