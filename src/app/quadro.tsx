@@ -1,9 +1,7 @@
 // src/app/quadro.tsx
-import { router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  Modal,
   Platform,
   ScrollView,
   Share,
@@ -12,11 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { CardResumoQuadro } from "../components/ui/CardResumoQuadro";
+import { CardVerificacaoRamal } from "../components/ui/CardVerificacaoRamal";
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
 import { calcularAlimentadorGeral } from "../utils/calculations";
 
-// Função utilitária para aplicar o fator de demanda da concessionária nos TUEs
 const aplicarDemandaTues = (
   tueWatts: number[],
   concessionaria: string,
@@ -26,91 +25,90 @@ const aplicarDemandaTues = (
   if (tueWatts.length === 2) fator = 0.9;
   else if (tueWatts.length >= 3 && tueWatts.length <= 5) fator = 0.8;
   else if (tueWatts.length >= 6) fator = 0.7;
-
-  const somaTues = tueWatts.reduce((acc, curr) => acc + curr, 0);
-  return somaTues * fator;
+  return tueWatts.reduce((acc, curr) => acc + curr, 0) * fator;
 };
 
 export default function TelaQuadro() {
-  const { comodos, tensaoGeral, concessionaria, removerComodo, zerarProjeto } =
-    useData();
-  const [modalVisible, setModalVisible] = useState(false);
+  const { comodos, tensaoGeral, concessionaria, removerComodo } = useData();
+  const [resultadosRamal, setResultadosRamal] = useState<any>(null);
 
-  // Auxiliares para extrair as potências de todos os cômodos
   const calcularPotenciasAtuais = () => {
     let somaIlumTugVA = 0;
     let listaWattsTue: number[] = [];
+    let totalBruto = 0;
 
     comodos.forEach((c) => {
       c.dispositivos.forEach((d) => {
         const potTotal = d.potencia * d.quantidade;
-        if (d.tipo === "iluminacao" || d.tipo === "tug") {
+        totalBruto += potTotal;
+        if (d.tipo === "iluminacao" || d.tipo === "tug")
           somaIlumTugVA += potTotal;
-        } else if (d.tipo === "tue") {
-          listaWattsTue.push(potTotal);
-        }
+        else if (d.tipo === "tue") listaWattsTue.push(potTotal);
       });
     });
 
-    return { somaIlumTugVA, listaWattsTue };
+    return { somaIlumTugVA, listaWattsTue, totalBruto };
   };
 
-  // 1. Dimensionamento Real (Instalado)
-  const processarQuadroGeralInstalado = () => {
-    const { somaIlumTugVA, listaWattsTue } = calcularPotenciasAtuais();
-    return calcularAlimentadorGeral({
-      potenciaIlumTugVA: somaIlumTugVA,
-      potenciasTueWatts: listaWattsTue,
-      tensao: tensaoGeral,
-    });
-  };
-
-  // 2. Dimensionamento de Demanda
-  const processarQuadroGeralDemanda = () => {
-    const { somaIlumTugVA, listaWattsTue } = calcularPotenciasAtuais();
-    const tueDemandaWatts = aplicarDemandaTues(listaWattsTue, concessionaria);
-    const potenciaTotalDemandaVA = somaIlumTugVA + tueDemandaWatts;
-
-    return calcularAlimentadorGeral({
-      potenciaIlumTugVA: potenciaTotalDemandaVA,
-      potenciasTueWatts: [],
-      tensao: tensaoGeral,
-    });
-  };
-
+  const { totalBruto } = calcularPotenciasAtuais();
   const projetoTemDados = comodos && comodos.length > 0;
-  const resultadoQDC = projetoTemDados ? processarQuadroGeralInstalado() : null;
+
+  const resultadoQDC = projetoTemDados
+    ? calcularAlimentadorGeral({
+        potenciaIlumTugVA: calcularPotenciasAtuais().somaIlumTugVA,
+        potenciasTueWatts: calcularPotenciasAtuais().listaWattsTue,
+        tensao: tensaoGeral,
+      })
+    : null;
+
   const resultadoDemanda = projetoTemDados
-    ? processarQuadroGeralDemanda()
+    ? calcularAlimentadorGeral({
+        potenciaIlumTugVA:
+          calcularPotenciasAtuais().somaIlumTugVA +
+          aplicarDemandaTues(
+            calcularPotenciasAtuais().listaWattsTue,
+            concessionaria,
+          ),
+        potenciasTueWatts: [],
+        tensao: tensaoGeral,
+      })
     : null;
 
   const handleCompartilharRelatorio = async () => {
-    if (!resultadoQDC || !resultadoDemanda) return;
-
     let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
-    texto += `📐 Baseado na Norma NBR 5410:2004 e Distribuidora (${concessionaria})\n`;
+    texto += `📐 Norma NBR 5410 e Distribuidora (${concessionaria})\n`;
+    texto += `🔌 Tensão do Sistema: ${tensaoGeral} V\n`;
     texto += `--------------------------------------\n\n`;
-    texto += `📋 RESUMO POR CÔMODOS:\n`;
 
-    comodos.forEach((c) => {
-      texto += `\n• ${c.nome}:\n`;
-      c.dispositivos.forEach((d) => {
-        texto += `  - ${d.quantidade}x ${d.nome} (${d.potencia} ${d.unidade})\n`;
+    if (projetoTemDados) {
+      texto += `📋 RESUMO POR CÔMODOS E CIRCUITOS:\n`;
+      comodos.forEach((c) => {
+        texto += `\n• ${c.nome}:\n`;
+        c.dispositivos.forEach((d) => {
+          const potTotal = d.potencia * d.quantidade;
+          const unidade = d.tipo === "tue" ? "W" : "VA";
+          texto += `  - ${d.quantidade}x ${d.nome} (${potTotal} ${unidade})\n`;
+        });
       });
-    });
+      texto += `\n--------------------------------------\n\n`;
 
-    texto += `\n💡 DIMENSIONAMENTO GERAL (INSTALADO):\nPotência Total: ${resultadoQDC.potenciaTotalVA} VA\nTensão: ${tensaoGeral} V\nCorrente Geral: ${resultadoQDC.correnteGeral} A\nCabo Principal: ${resultadoQDC.caboGeral} mm²\nDisjuntor Geral: ${resultadoQDC.disjuntorGeral} A`;
-    texto += `\n\n🏢 PADRÃO DE ENTRADA (CONCESSIONÁRIA - ${concessionaria}):\nDemanda Calculada: ${resultadoDemanda.potenciaTotalVA} VA\nCorrente de Demanda: ${resultadoDemanda.correnteGeral} A\nCabo do Medidor: ${resultadoDemanda.caboGeral} mm²\nDisjuntor Geral (Entrada): ${resultadoDemanda.disjuntorGeral} A`;
+      texto += `💡 QDC INTERNO (INSTALADO):\nPotência: ${resultadoQDC?.potenciaTotalVA} VA\nCabo: ${resultadoQDC?.caboGeral} mm²\nDisjuntor: ${resultadoQDC?.disjuntorGeral} A\n`;
+      texto += `\n🏢 DEMANDA PADRÃO (${concessionaria}):\nDemanda: ${resultadoDemanda?.potenciaTotalVA} VA\nCabo: ${resultadoDemanda?.caboGeral} mm²\nDisjuntor: ${resultadoDemanda?.disjuntorGeral} A\n\n`;
+    }
+
+    if (resultadosRamal) {
+      texto += `📏 VERIFICAÇÃO POR QUEDA DE TENSÃO (DISTÂNCIA):\nFornecimento: ${resultadosRamal.fornecimento}\n`;
+      texto += `Trecho 1 (Rua -> Medidor): Cabo ${resultadosRamal.trecho1.bitola} mm² | Disj: ${resultadosRamal.trecho1.disjuntor} A\n`;
+      texto += `Trecho 2 (Medidor -> QDC): Cabo ${resultadosRamal.trecho2.bitola} mm² | Disj: ${resultadosRamal.trecho2.disjuntor} A\n`;
+    }
 
     await Share.share({ message: texto });
   };
 
   const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
     if (Platform.OS === "web") {
-      const confirmou = window.confirm(
-        `Tem certeza que vai excluir "${nomeComodo}"?`,
-      );
-      if (confirmou) removerComodo(comodoId);
+      if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
+        removerComodo(comodoId);
     } else {
       Alert.alert("Excluir", `Tem certeza que vai excluir "${nomeComodo}"?`, [
         { text: "Não", style: "cancel" },
@@ -123,33 +121,37 @@ export default function TelaQuadro() {
     }
   };
 
-  const executarNovoProjeto = () => {
-    zerarProjeto();
-    router.replace("/");
-  };
-
   return (
     <View style={styles.wrapperWeb}>
-      <CustomHeader title="Distribuição Geral (QDC)" />
+      <CustomHeader title="Relatório e Dimensionamento" />
 
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
-        {resultadoQDC && resultadoDemanda ? (
-          <View style={styles.quadroContainer}>
-            <Text style={styles.subtitulo}>📋 RELAÇÃO DE CÔMODOS</Text>
+        {/* 1. Formulário Isolado do Ramal de Entrada */}
+        <CardVerificacaoRamal
+          potenciaBase={totalBruto}
+          tensaoGeral={tensaoGeral}
+          onCalcularRamal={setResultadosRamal}
+        />
 
+        {/* 2. Lista de Cômodos Cadastrados */}
+        {projetoTemDados && (
+          <View style={styles.quadroContainer}>
+            <Text style={styles.subtitulo}>📋 Relação de Cômodos</Text>
             <View style={styles.cardLista}>
               {comodos.map((c) => (
                 <View key={c.id} style={styles.itemCircuito}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nomeCircuito}>{c.nome}</Text>
-                    <View style={styles.detalhesLinha}>
-                      <Text style={styles.textoDetalhe}>
-                        {c.dispositivos.length} equipamento(s) vinculado(s)
+                    {/* Alteração aqui: Lista detalhada dos dispositivos no ecrã */}
+                    {c.dispositivos.map((d, index) => (
+                      <Text key={index} style={styles.textoDetalhe}>
+                        ↳ {d.quantidade}x {d.nome} ({d.potencia * d.quantidade}{" "}
+                        {d.tipo === "tue" ? "W" : "VA"})
                       </Text>
-                    </View>
+                    ))}
                   </View>
                   <TouchableOpacity
                     style={styles.deleteButton}
@@ -161,121 +163,28 @@ export default function TelaQuadro() {
               ))}
             </View>
 
-            {/* DIMENSIONAMENTO DAS INSTALAÇÕES (INTERNO - QDC) */}
-            <View style={styles.cardRelatorio}>
-              <Text style={styles.tituloRelatorio}>
-                💡 QUADRO DE DISTRIBUIÇÃO (QDC) - INSTALADO:
-              </Text>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Potência Total Instalada:</Text>
-                <Text style={styles.valor}>
-                  {resultadoQDC.potenciaTotalVA} VA
-                </Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Tensão Nominal:</Text>
-                <Text style={styles.valor}>{tensaoGeral} V</Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Corrente Projeto (Ib):</Text>
-                <Text style={styles.valor}>{resultadoQDC.correnteGeral} A</Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Seção Cabo Geral (QDC):</Text>
-                <Text style={styles.valorDestaque}>
-                  {resultadoQDC.caboGeral} mm²
-                </Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Disjuntor Geral (QDC):</Text>
-                <Text style={styles.valorDestaque}>
-                  {resultadoQDC.disjuntorGeral} A
-                </Text>
-              </View>
-            </View>
-
-            {/* DIMENSIONAMENTO DE DEMANDA (PADRÃO DE ENTRADA) */}
-            <View
-              style={[styles.cardRelatorio, { backgroundColor: "#312e81" }]}
-            >
-              <Text style={[styles.tituloRelatorio, { color: "#c7d2fe" }]}>
-                🏢 PADRÃO DE ENTRADA - DEMANDA ({concessionaria}):
-              </Text>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Demanda Calculada (S):</Text>
-                <Text style={styles.valorDestaqueDemanda}>
-                  {resultadoDemanda.potenciaTotalVA} VA
-                </Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Corrente de Demanda (In):</Text>
-                <Text style={styles.valor}>
-                  {resultadoDemanda.correnteGeral} A
-                </Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Cabo Ramal de Entrada:</Text>
-                <Text style={styles.valorDestaque}>
-                  {resultadoDemanda.caboGeral} mm²
-                </Text>
-              </View>
-              <View style={styles.linhaResumo}>
-                <Text style={styles.label}>Disjuntor Geral (Medidor):</Text>
-                <Text style={styles.valorDestaque}>
-                  {resultadoDemanda.disjuntorGeral} A
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.botaoExportar}
-              onPress={handleCompartilharRelatorio}
-            >
-              <Text style={styles.textoBotaoExportar}>🟩 Enviar Relatório</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.cardAvisoVazio}>
-            <Text style={styles.txtAviso}>
-              Nenhum cômodo ou circuito cadastrado.
-            </Text>
+            {/* 3. Resultados Automáticos do Quadro Geral */}
+            {resultadoQDC && resultadoDemanda && (
+              <CardResumoQuadro
+                resultadoQDC={resultadoQDC}
+                resultadoDemanda={resultadoDemanda}
+                concessionaria={concessionaria}
+              />
+            )}
           </View>
         )}
-      </ScrollView>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Atenção</Text>
-            <Text style={styles.modalMessage}>
-              Quer realmente iniciar um Novo Projeto? Isto apagará todos os
-              dados.
+        {(projetoTemDados || resultadosRamal) && (
+          <TouchableOpacity
+            style={styles.botaoExportar}
+            onPress={handleCompartilharRelatorio}
+          >
+            <Text style={styles.textoBotaoExportar}>
+              🟩 Enviar Relatório Completo
             </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.btnModal, styles.btnCancel]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.btnText}>Não</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.btnModal, styles.btnConfirm]}
-                onPress={() => {
-                  setModalVisible(false);
-                  executarNovoProjeto();
-                }}
-              >
-                <Text style={styles.btnText}>Sim</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -289,7 +198,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  quadroContainer: { paddingBottom: 20 },
+  quadroContainer: { paddingBottom: 10 },
   subtitulo: {
     fontSize: 16,
     fontWeight: "bold",
@@ -302,10 +211,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
     elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
   itemCircuito: {
     flexDirection: "row",
@@ -316,33 +221,14 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f3f4f6",
   },
   deleteButton: { padding: 8, marginLeft: 10 },
-  nomeCircuito: { fontSize: 14, color: "#374151", flex: 1, fontWeight: "600" },
-  detalhesLinha: { flexDirection: "row", gap: 10, marginTop: 4 },
-  textoDetalhe: { fontSize: 12, color: "#6b7280" },
-  cardRelatorio: {
-    backgroundColor: "#064e3b",
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 14,
-  },
-  tituloRelatorio: {
-    color: "#fde047",
+  nomeCircuito: {
     fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 12,
-    textAlign: "center",
+    color: "#374151",
+    flex: 1,
+    fontWeight: "600",
+    marginBottom: 4,
   },
-  linhaResumo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 5,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(255,255,255,0.2)",
-  },
-  label: { color: "#ffffff", fontSize: 13 },
-  valor: { color: "#ffffff", fontWeight: "600" },
-  valorDestaque: { color: "#fde047", fontWeight: "bold", fontSize: 13 },
-  valorDestaqueDemanda: { color: "#ca8a04", fontWeight: "bold", fontSize: 14 },
+  textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 2 },
   botaoExportar: {
     backgroundColor: "#10b981",
     padding: 14,
@@ -351,57 +237,4 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   textoBotaoExportar: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
-  cardAvisoVazio: {
-    backgroundColor: "#e5e7eb",
-    padding: 20,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 30,
-  },
-  txtAviso: { color: "#6b7280", fontSize: 14, textAlign: "center" },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalBox: {
-    width: 280,
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#111827",
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: "#4B5563",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "space-between",
-  },
-  btnModal: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    marginHorizontal: 4,
-  },
-  btnCancel: { backgroundColor: "#9CA3AF" },
-  btnConfirm: { backgroundColor: "#EF4444" },
-  btnText: { color: "white", fontWeight: "bold", fontSize: 14 },
 });

@@ -11,15 +11,15 @@ import {
 
 // Sugestões rápidas de TUEs com potências médias para facilitar a vida do projetista
 const OPCOES_TUE = [
-  { label: "Chuveiro Elétrico", potencia: 5500 },
   { label: "Ar-Condicionado 9.000 BTU", potencia: 820 },
   { label: "Ar-Condicionado 12.000 BTU", potencia: 1100 },
   { label: "Ar-Condicionado 18.000 BTU", potencia: 1700 },
-  { label: "Torneira Elétrica", potencia: 4400 },
-  { label: "Micro-ondas", potencia: 1500 },
+  { label: "Bomba de Água (1 CV)", potencia: 735 },
+  { label: "Chuveiro Elétrico", potencia: 5500 },
   { label: "Forno Elétrico", potencia: 2000 },
   { label: "Máquina de Lavar e Secar", potencia: 2500 },
-  { label: "Bomba de Água (1 CV)", potencia: 735 },
+  { label: "Micro-ondas", potencia: 1500 },
+  { label: "Torneira Elétrica", potencia: 4400 },
 ];
 
 export default function FormTue({

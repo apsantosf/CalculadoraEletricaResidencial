@@ -24,11 +24,11 @@ interface FormProps {
 
 // Lista de opções para o Picker contendo o nome amigável e o tipo normativo
 const OPCOES_COMODOS = [
-  { label: "Sala de Estar", tipo: "sala" },
-  { label: "Quarto", tipo: "sala" },
-  { label: "Cozinha", tipo: "cozinha" },
-  { label: "Banheiro", tipo: "banheiro" },
   { label: "Área de Serviço", tipo: "cozinha" },
+  { label: "Banheiro", tipo: "banheiro" },
+  { label: "Cozinha", tipo: "cozinha" },
+  { label: "Quarto", tipo: "sala" },
+  { label: "Sala de Estar", tipo: "sala" },
 ];
 
 export default function FormPrevisaoCarga({
