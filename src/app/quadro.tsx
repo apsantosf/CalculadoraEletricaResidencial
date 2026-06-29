@@ -15,6 +15,7 @@ import { CardVerificacaoRamal } from "../components/ui/CardVerificacaoRamal";
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
 import { calcularAlimentadorGeral } from "../utils/calculations";
+import { gerarMemorialPDF } from "../utils/pdfGenerator";
 
 const aplicarDemandaTues = (
   tueWatts: number[],
@@ -74,6 +75,19 @@ export default function TelaQuadro() {
       })
     : null;
 
+  // Função para gerar o PDF Formal
+  const handleGerarPDF = async () => {
+    await gerarMemorialPDF({
+      comodos,
+      tensaoGeral,
+      concessionaria,
+      resultadoQDC,
+      resultadoDemanda,
+      resultadosRamal,
+    });
+  };
+
+  // Função para enviar Resumo via WhatsApp/Texto
   const handleCompartilharRelatorio = async () => {
     let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
     texto += `📐 Norma NBR 5410 e Distribuidora (${concessionaria})\n`;
@@ -175,14 +189,28 @@ export default function TelaQuadro() {
         )}
 
         {(projetoTemDados || resultadosRamal) && (
-          <TouchableOpacity
-            style={styles.botaoExportar}
-            onPress={handleCompartilharRelatorio}
-          >
-            <Text style={styles.textoBotaoExportar}>
-              🟩 Enviar Relatório Completo
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.botoesAcaoContainer}>
+            <TouchableOpacity
+              style={[
+                styles.botaoExportar,
+                { backgroundColor: "#0284c7", marginBottom: 12 },
+              ]}
+              onPress={handleGerarPDF}
+            >
+              <Text style={styles.textoBotaoExportar}>
+                📄 Gerar Memorial em PDF
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.botaoExportar}
+              onPress={handleCompartilharRelatorio}
+            >
+              <Text style={styles.textoBotaoExportar}>
+                🟩 Enviar Resumo por WhatsApp
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -229,12 +257,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  botoesAcaoContainer: { marginTop: 10 },
   botaoExportar: {
     backgroundColor: "#10b981",
     padding: 14,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 20,
   },
   textoBotaoExportar: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
 });

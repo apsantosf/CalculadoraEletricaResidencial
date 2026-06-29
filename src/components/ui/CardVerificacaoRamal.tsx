@@ -1,17 +1,19 @@
 // src/components/ui/CardVerificacaoRamal.tsx
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useData } from "../../context/DataContext";
 import {
-    determinarTipoFornecimento,
-    obterFatorDemandaGeral,
-    processarTrechoRamal,
+  determinarTipoFornecimento,
+  obterFatorDemandaGeral,
+  processarTrechoRamal,
 } from "../../utils/calculations";
 
 interface CardVerificacaoRamalProps {
@@ -25,12 +27,12 @@ export function CardVerificacaoRamal({
   tensaoGeral,
   onCalcularRamal,
 }: CardVerificacaoRamalProps) {
+  const { sistemaDistribuicao } = useData();
   const [distanciaExterna, setDistanciaExterna] = useState("");
   const [distanciaInterna, setDistanciaInterna] = useState("");
   const [potenciaEditavel, setPotenciaEditavel] = useState("");
   const [resultadosLocal, setResultadosLocal] = useState<any>(null);
 
-  // Sincroniza a potência calculada dos cômodos com o input editável
   useEffect(() => {
     if (potenciaBase > 0) {
       setPotenciaEditavel(potenciaBase.toString());
@@ -40,6 +42,12 @@ export function CardVerificacaoRamal({
       onCalcularRamal(null);
     }
   }, [potenciaBase]);
+
+  useEffect(() => {
+    if (resultadosLocal) {
+      handleCalcular();
+    }
+  }, [sistemaDistribuicao]);
 
   const handleCalcular = () => {
     const pot = parseFloat(potenciaEditavel);
@@ -61,19 +69,25 @@ export function CardVerificacaoRamal({
       correnteDemanda,
       tensaoGeral,
       caboMinimo,
+      sistemaDistribuicao,
     );
     const trecho2 = processarTrechoRamal(
       distInt,
       correnteDemanda,
       tensaoGeral,
       0,
+      sistemaDistribuicao,
     );
 
     const resumoResultados = {
       fatorAplicado: Math.round(fatorDemanda * 100),
       potenciaDemanda: Math.round(potenciaDemanda),
       correnteDemanda: Number(correnteDemanda.toFixed(1)),
-      fornecimento: determinarTipoFornecimento(trecho1.disjuntor),
+      fornecimento: determinarTipoFornecimento(
+        trecho1.disjuntor,
+        tensaoGeral,
+        sistemaDistribuicao,
+      ),
       trecho1,
       trecho2,
     };
@@ -82,17 +96,32 @@ export function CardVerificacaoRamal({
     onCalcularRamal(resumoResultados);
   };
 
+  // 💡 NOVA FUNÇÃO: Exibe a explicação técnica para o usuário
+  const mostrarInfoFases = () => {
+    const mensagem =
+      "Por que 220V pode ser Monofásico ou Bifásico?\n\n" +
+      "• Sistema 127/220V (SP, RJ, MG...): A fase da rua tem 127V. Para obter 220V, são necessárias 2 fases (Bifásico).\n\n" +
+      "• Sistema 220/380V (NE, SC, DF...): A fase da rua já possui 220V. Logo, usa-se apenas 1 fase (Monofásico) para obter 220V.\n\n" +
+      "O aplicativo ajustou essa classificação automaticamente com base na região que você selecionou no início do projeto.";
+
+    if (Platform.OS === "web") {
+      window.alert(mensagem);
+    } else {
+      Alert.alert("Entenda a Classificação", mensagem);
+    }
+  };
+
   return (
     <View style={styles.cardEntrada}>
       <Text style={styles.tituloSecao}>
-        📏 Verificação de Queda de Tensão (Opcional)
+        Análise de Queda de Tensão nos Ramais
       </Text>
       <Text style={styles.textoInstrucao}>
-        Informe as distâncias para verificar se os cabos gerais precisam ser
-        aumentados.
+        Preencha as distâncias para avaliar se a queda de tensão exige cabos
+        maiores.
       </Text>
 
-      <Text style={styles.labelInput}>Potência Total (Watts/VA)</Text>
+      <Text style={styles.labelInput}>Potência Alvo do Ramal (Watts/VA)</Text>
       <TextInput
         style={styles.input}
         keyboardType="numeric"
@@ -119,7 +148,7 @@ export function CardVerificacaoRamal({
             keyboardType="numeric"
             value={distanciaInterna}
             onChangeText={setDistanciaInterna}
-            placeholder="Ex: 8"
+            placeholder="Ex: 10"
           />
         </View>
       </View>
@@ -128,26 +157,36 @@ export function CardVerificacaoRamal({
         style={styles.botaoCalcularRamal}
         onPress={handleCalcular}
       >
-        <Text style={styles.textoBotao}>Verificar Cabos</Text>
+        <Text style={styles.textoBotao}>Dimensionar Ramais</Text>
       </TouchableOpacity>
 
       {resultadosLocal && (
         <View style={styles.resultadoRamalBox}>
-          <Text style={styles.txtFornecimentoDestaque}>
-            {resultadosLocal.fornecimento}
-          </Text>
+          <View style={styles.headerResultado}>
+            <Text style={styles.txtFornecimentoDestaque}>
+              {resultadosLocal.fornecimento}
+            </Text>
+            {/* 💡 NOVO BOTÃO DE INFORMAÇÃO */}
+            <TouchableOpacity
+              style={styles.botaoInfo}
+              onPress={mostrarInfoFases}
+            >
+              <Text style={styles.textoInfo}>ℹ️ Entenda</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.txtDemandaAplicada}>
-            Demanda Final: {resultadosLocal.potenciaDemanda} VA
+            Demanda Estimada: {resultadosLocal.potenciaDemanda} VA
           </Text>
           <View style={styles.linhaTrecho}>
-            <Text style={styles.lblTrecho}>📍 Rua ao Medidor:</Text>
+            <Text style={styles.lblTrecho}>📍 Conexão da Rua ao Medidor:</Text>
             <Text style={styles.valTrecho}>
               Cabo {resultadosLocal.trecho1.bitola} mm² | Disj:{" "}
               {resultadosLocal.trecho1.disjuntor} A
             </Text>
           </View>
           <View style={styles.linhaTrecho}>
-            <Text style={styles.lblTrecho}>🏠 Medidor ao QDC:</Text>
+            <Text style={styles.lblTrecho}>🏠 Entrada do Medidor ao QDC:</Text>
             <Text style={styles.valTrecho}>
               Cabo {resultadosLocal.trecho2.bitola} mm² | Disj:{" "}
               {resultadosLocal.trecho2.disjuntor} A
@@ -212,13 +251,28 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 16,
   },
+
+  // Estilos atualizados para o cabeçalho com o botão de info
+  headerResultado: {
+    flexDirection: "column",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   txtFornecimentoDestaque: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#1d4ed8",
     textAlign: "center",
-    marginBottom: 4,
   },
+  botaoInfo: {
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 6,
+  },
+  textoInfo: { fontSize: 11, color: "#1e40af", fontWeight: "600" },
+
   txtDemandaAplicada: {
     fontSize: 12,
     color: "#3b82f6",
@@ -235,7 +289,7 @@ const styles = StyleSheet.create({
   lblTrecho: { fontSize: 12, fontWeight: "bold", color: "#1e40af" },
   valTrecho: {
     fontSize: 14,
-    color: "#1e40af",
+    color: "#1e3a8a",
     marginTop: 2,
     fontWeight: "500",
   },

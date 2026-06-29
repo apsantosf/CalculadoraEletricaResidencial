@@ -1,6 +1,14 @@
 // src/app/index.tsx
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import CardResultado from "../components/ui/CardResultado";
 import CustomHeader from "../components/ui/CustomHeader";
 import FormPrevisaoCarga from "../components/ui/FormPrevisaoCarga";
@@ -34,13 +42,14 @@ export default function TelaComodos() {
     setTensaoGeral,
     concessionaria,
     setConcessionaria,
+    sistemaDistribuicao,
+    setSistemaDistribuicao,
     adicionarComodo,
     comodos,
   } = useData();
 
   const [resultado, setResultado] = useState<ResultadoPrevisao | null>(null);
 
-  // Agora a contagem de cômodos é direta pelo tamanho da lista
   const totalComodos = comodos ? comodos.length : 0;
 
   const handleCalcularOficial = (dados: any) => {
@@ -67,13 +76,11 @@ export default function TelaComodos() {
     const qtdTugs = calcularQuantidadeTugs(dados.tipo, dados.perimetro);
     const potTugs = calcularPotenciaTugs(dados.tipo, qtdTugs);
 
-    // Identifica se há um template correspondente (ex: 'cozinha', 'banheiro') ou usa o genérico
     const chaveTemplate = TEMPLATES_COMODOS[dados.tipo?.toLowerCase()]
       ? dados.tipo.toLowerCase()
       : "sala";
     const template = TEMPLATES_COMODOS[chaveTemplate];
 
-    // Monta a lista de dispositivos injetando os cálculos recomendados da NBR 5410 como padrão editável
     const dispositivosPreenchidos: Dispositivo[] = (
       template.dispositivosPadrao || []
     ).map((disp) => {
@@ -94,7 +101,6 @@ export default function TelaComodos() {
       };
     });
 
-    // Se o template padrão não possuir itens, garante a inserção mínima calculada
     if (dispositivosPreenchidos.length === 0) {
       dispositivosPreenchidos.push(
         {
@@ -116,7 +122,6 @@ export default function TelaComodos() {
       );
     }
 
-    // Salva o objeto estruturado do cômodo no contexto global
     adicionarComodo({
       id: Math.random().toString(),
       nome: dados.nome || template.nome,
@@ -150,6 +155,29 @@ export default function TelaComodos() {
     ? `${resultado.tomadas.secaoCabo} mm²`
     : "-";
 
+  // Função explicativa do Sistema de Distribuição
+  const mostrarInfoSistema = () => {
+    const mensagem =
+      "Entenda o Sistema de Distribuição Nacional\n\n" +
+      "A configuração do padrão de entrada depende de como a concessionária local distribui a energia na rede secundária do transformador:\n\n" +
+      "1. Sistema 127/220V (Padrão de SP, RJ, MG, PR, etc.):\n" +
+      "• Tensão de Fase (Fase + Neutro) = 127 V.\n" +
+      "• Tensão de Linha (Fase + Fase) = 220 V.\n" +
+      "👉 Se você precisa de 220V para a residência ou para circuitos internos, a concessionária obrigatoriamente terá que fornecer 2 Fases + Neutro, resultando em um padrão BIFÁSICO no mínimo.\n\n" +
+      "2. Sistema 220/380V (Padrão do Nordeste, DF, SC, GO, etc.):\n" +
+      "• Tensão de Fase (Fase + Neutro) = 220 V.\n" +
+      "• Tensão de Linha (Fase + Fase) = 380 V.\n" +
+      "👉 Como a tensão entre uma única fase e o neutro já é 220V, o fornecimento para uma carga de 220V pode ser feito com apenas 1 Fase + Neutro, resultando em um padrão MONOFÁSICO.\n\n" +
+      "Importância no Cálculo:\n" +
+      "Essa seleção define se o disjuntor geral do medidor começará com 1 polo (monofásico) ou 2 polos (bifásico), além de influenciar o cálculo exato da corrente de demanda e a queda de tensão nos cabos do ramal.";
+
+    if (Platform.OS === "web") {
+      window.alert(mensagem);
+    } else {
+      Alert.alert("Guia Técnico: Sistema de Distribuição", mensagem);
+    }
+  };
+
   return (
     <View style={styles.wrapperWeb}>
       <CustomHeader title="Previsão de Carga" />
@@ -159,9 +187,8 @@ export default function TelaComodos() {
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
         <View style={styles.cardConfig}>
-          <Text style={styles.lblSeletor}>
-            Tensão de Entrada (Concessionária)
-          </Text>
+          {/* SELETOR 1: TENSÃO */}
+          <Text style={styles.lblSeletor}>Tensão de Trabalho Interna</Text>
           {projetoIniciado ? (
             <View style={styles.valorTravadoContainer}>
               <Text style={styles.valorTravadoTexto}>{tensaoGeral} V</Text>
@@ -178,17 +205,39 @@ export default function TelaComodos() {
             />
           )}
 
-          <Text
-            style={[
-              styles.lblSeletor,
-              {
-                marginTop: 16,
-                borderTopWidth: 1,
-                borderColor: "#E5E7EB",
-                paddingTop: 12,
-              },
-            ]}
-          >
+          {/* SELETOR 2: SISTEMA DA CONCESSIONÁRIA COM BOTÃO INFO */}
+          <View style={styles.headerInfoContainer}>
+            <Text style={styles.lblSeletorSemMargem}>
+              Sistema de Rede da Região
+            </Text>
+            <TouchableOpacity
+              onPress={mostrarInfoSistema}
+              style={styles.iconeInfo}
+            >
+              <Text style={styles.txtIconeInfo}>ℹ️</Text>
+            </TouchableOpacity>
+          </View>
+
+          {projetoIniciado ? (
+            <View style={styles.valorTravadoContainer}>
+              <Text style={styles.valorTravadoTexto}>
+                {sistemaDistribuicao}
+              </Text>
+            </View>
+          ) : (
+            <SeletorBotoes
+              label=""
+              valorSelecionado={sistemaDistribuicao}
+              onSelecionar={setSistemaDistribuicao as any}
+              opcoes={[
+                { id: "127/220V", label: "127/220 V (Ex: Sul/Sudeste)" },
+                { id: "220/380V", label: "220/380 V (Ex: Nordeste/DF)" },
+              ]}
+            />
+          )}
+
+          {/* SELETOR 3: CONCESSIONÁRIA */}
+          <Text style={[styles.lblSeletor, styles.bordaDivisora]}>
             Distribuidora de Energia
           </Text>
           {projetoIniciado ? (
@@ -211,8 +260,8 @@ export default function TelaComodos() {
 
           {projetoIniciado && (
             <Text style={styles.txtAvisoBloqueio}>
-              ⚠️ Configurações travadas. Esvazie o &quot;Quadro Geral&quot; para
-              alterar.
+              ⚠️ Configurações travadas. Limpe o &quot;Quadro Geral&quot; para
+              alterar os parâmetros da rede.
             </Text>
           )}
         </View>
@@ -285,6 +334,28 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
     textAlign: "center",
+  },
+
+  // Novos estilos para o título com ícone de info
+  headerInfoContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingTop: 12,
+    marginBottom: 8,
+  },
+  lblSeletorSemMargem: { fontSize: 14, fontWeight: "bold", color: "#374151" },
+  iconeInfo: { marginLeft: 8, padding: 2 },
+  txtIconeInfo: { fontSize: 16 },
+
+  bordaDivisora: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingTop: 12,
   },
   valorTravadoContainer: {
     backgroundColor: "#F3F4F6",
