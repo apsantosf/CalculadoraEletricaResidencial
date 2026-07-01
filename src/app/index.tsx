@@ -17,13 +17,32 @@ export default function ScreenInicio() {
     setSistemaDistribuicao,
     distribuidora,
     setDistribuidora,
+    comodos,
   } = useData();
+
+  // 💡 VALIDAÇÃO DE SEGURANÇA: Identifica se o usuário já adicionou cômodos ou TUEs
+  const temItensCadastrados = comodos && comodos.length > 0;
 
   return (
     <View style={styles.container}>
       <CustomHeader title="Previsão de Carga" />
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* 💡 BANNER DE ALERTA DE SEGURANÇA */}
+        {temItensCadastrados && (
+          <View style={styles.alertaBloqueio}>
+            <Text style={styles.tituloAlertaBloqueio}>
+              ⚠️ CONFIGURAÇÕES INICIAIS TRAVADAS
+            </Text>
+            <Text style={styles.textoAlertaBloqueio}>
+              Como já existem cômodos ou circuitos específicos cadastrados, a
+              alteração de tensão, rede e distribuidora foi bloqueada para
+              proteger os cálculos atuais. Para modificar estas opções, você
+              deve limpar o projeto clicando no "X" no topo da tela.
+            </Text>
+          </View>
+        )}
+
         {/* Bloco 1: Tensão de Trabalho Interna */}
         <View style={styles.cardConfig}>
           <Text style={styles.labelSecao}>Tensão de Trabalho Interna</Text>
@@ -32,13 +51,20 @@ export default function ScreenInicio() {
               style={[
                 styles.botaoOpcao,
                 tensaoGeral === 127 && styles.botaoAtivo,
+                temItensCadastrados &&
+                  tensaoGeral !== 127 &&
+                  styles.botaoDesativado,
               ]}
               onPress={() => setTensaoGeral(127)}
+              disabled={temItensCadastrados}
             >
               <Text
                 style={[
                   styles.textoBotao,
                   tensaoGeral === 127 && styles.textoAtivo,
+                  temItensCadastrados &&
+                    tensaoGeral !== 127 &&
+                    styles.textoDesativado,
                 ]}
               >
                 127 V
@@ -48,13 +74,20 @@ export default function ScreenInicio() {
               style={[
                 styles.botaoOpcao,
                 tensaoGeral === 220 && styles.botaoAtivo,
+                temItensCadastrados &&
+                  tensaoGeral !== 220 &&
+                  styles.botaoDesativado,
               ]}
               onPress={() => setTensaoGeral(220)}
+              disabled={temItensCadastrados}
             >
               <Text
                 style={[
                   styles.textoBotao,
                   tensaoGeral === 220 && styles.textoAtivo,
+                  temItensCadastrados &&
+                    tensaoGeral !== 220 &&
+                    styles.textoDesativado,
                 ]}
               >
                 220 V
@@ -71,13 +104,20 @@ export default function ScreenInicio() {
               style={[
                 styles.botaoOpcao,
                 sistemaDistribuicao === "127/220V" && styles.botaoAtivo,
+                temItensCadastrados &&
+                  sistemaDistribuicao !== "127/220V" &&
+                  styles.botaoDesativado,
               ]}
               onPress={() => setSistemaDistribuicao("127/220V")}
+              disabled={temItensCadastrados}
             >
               <Text
                 style={[
                   styles.textoBotao,
                   sistemaDistribuicao === "127/220V" && styles.textoAtivo,
+                  temItensCadastrados &&
+                    sistemaDistribuicao !== "127/220V" &&
+                    styles.textoDesativado,
                 ]}
               >
                 127/220 V (Sul/Sudeste)
@@ -87,13 +127,20 @@ export default function ScreenInicio() {
               style={[
                 styles.botaoOpcao,
                 sistemaDistribuicao === "220/380V" && styles.botaoAtivo,
+                temItensCadastrados &&
+                  sistemaDistribuicao !== "220/380V" &&
+                  styles.botaoDesativado,
               ]}
               onPress={() => setSistemaDistribuicao("220/380V")}
+              disabled={temItensCadastrados}
             >
               <Text
                 style={[
                   styles.textoBotao,
                   sistemaDistribuicao === "220/380V" && styles.textoAtivo,
+                  temItensCadastrados &&
+                    sistemaDistribuicao !== "220/380V" &&
+                    styles.textoDesativado,
                 ]}
               >
                 220/380 V (Nordeste/DF)
@@ -112,13 +159,20 @@ export default function ScreenInicio() {
                 style={[
                   styles.botaoMini,
                   distribuidora === dist && styles.botaoAtivo,
+                  temItensCadastrados &&
+                    distribuidora !== dist &&
+                    styles.botaoDesativado,
                 ]}
                 onPress={() => setDistribuidora(dist)}
+                disabled={temItensCadastrados}
               >
                 <Text
                   style={[
                     styles.textoBotao,
                     distribuidora === dist && styles.textoAtivo,
+                    temItensCadastrados &&
+                      distribuidora !== dist &&
+                      styles.textoDesativado,
                   ]}
                 >
                   {dist}
@@ -178,4 +232,35 @@ const styles = StyleSheet.create({
   botaoAtivo: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
   textoBotao: { fontSize: 13, fontWeight: "600", color: "#4b5563" },
   textoAtivo: { color: "#fff" },
+
+  // 💡 ESTILOS DO BANNER DE TRAVAMENTO EXTERNO
+  alertaBloqueio: {
+    backgroundColor: "#fff1f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  tituloAlertaBloqueio: {
+    color: "#991b1b",
+    fontWeight: "bold",
+    fontSize: 13,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  textoAlertaBloqueio: {
+    color: "#991b1b",
+    fontSize: 11,
+    lineHeight: 18,
+    textAlign: "justify",
+  },
+  botaoDesativado: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
+    opacity: 0.5,
+  },
+  textoDesativado: {
+    color: "#9ca3af",
+  },
 });

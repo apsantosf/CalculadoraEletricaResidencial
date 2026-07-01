@@ -198,8 +198,21 @@ export const gerarMemorialPDF = async (data: PDFData) => {
 
   try {
     if (Platform.OS === "web") {
-      // Na web, abre o diálogo de impressão do navegador (onde o utilizador escolhe "Guardar como PDF")
-      await Print.printAsync({ html: htmlContent });
+      // 💡 CORREÇÃO WEB: Abre uma nova aba (protegendo o aplicativo principal)
+      const novaAba = window.open("", "_blank");
+      if (novaAba) {
+        novaAba.document.write(htmlContent);
+        novaAba.document.close();
+
+        // Aguarda um instante para renderizar o CSS e chama o diálogo de impressão
+        setTimeout(() => {
+          novaAba.print();
+        }, 500);
+      } else {
+        window.alert(
+          "O navegador bloqueou a abertura de uma nova aba (Pop-up bloqueado). Permita a abertura para gerar o PDF.",
+        );
+      }
     } else {
       // No Android/iOS, cria o ficheiro e abre o menu de partilha nativo
       const result = await Print.printToFileAsync({ html: htmlContent });
