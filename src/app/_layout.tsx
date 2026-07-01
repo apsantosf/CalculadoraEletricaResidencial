@@ -27,8 +27,15 @@ function BarraInferiorFixa() {
   const bottomOffset =
     Platform.OS === "android" ? Math.max(insets.bottom + 16, 24) : 24;
 
+  // 💡 NOVA ESTRUTURA DE ABAS ATUALIZADA
   const tabs = [
-    { key: "/", title: "Cômodos", icon: "lightbulb", pack: "fontawesome" },
+    { key: "/", title: "Início", icon: "home", pack: "fontawesome" },
+    {
+      key: "/comodos",
+      title: "Cômodos",
+      icon: "lightbulb",
+      pack: "fontawesome",
+    },
     { key: "/tue", title: "TUEs", icon: "lightning-bolt", pack: "material" },
     {
       key: "/quadro",
@@ -42,10 +49,8 @@ function BarraInferiorFixa() {
     <View style={[styles.tabBarWrapper, { bottom: bottomOffset }]}>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
-          // Ajusta a rota ativa considerando a raiz "/"
-          const isActive =
-            pathname === tab.key ||
-            (tab.key === "/" && pathname === "/comodos");
+          // 💡 Lógica simplificada: como agora cada aba tem sua rota própria, a verificação é direta
+          const isActive = pathname === tab.key;
           const activeColor = "#208AEF";
           const inactiveColor = "#6b7280";
           const color = isActive ? activeColor : inactiveColor;

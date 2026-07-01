@@ -21,40 +21,44 @@ export function CardResumoQuadro({
 }: CardResumoQuadroProps) {
   return (
     <View style={styles.container}>
-      {/* CARTÃO VERDE: INSTALADO (BRUTO) */}
+      {/* CARTÃO VERDE: QDC (CORRIGIDO PARA ESPELHAR A DEMANDA NA PROTEÇÃO) */}
       <View style={styles.cardRelatorio}>
         <Text style={styles.tituloRelatorio}>
           💡 QDC - INSTALADO (INTERNO):
         </Text>
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Potência Instalada:</Text>
+          <Text style={styles.labelBranco}>Potência Total Bruta:</Text>
           <Text style={styles.valorBranco}>
             {resultadoQDC.potenciaTotalVA} VA
           </Text>
         </View>
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Corrente Projeto (Ib):</Text>
+          <Text style={styles.labelBranco}>Corrente Máxima Teórica:</Text>
           <Text style={styles.valorBranco}>{resultadoQDC.correnteGeral} A</Text>
         </View>
+
+        {/* 🐛 CORREÇÃO DE SELETIVIDADE: O cabo e disjuntor agora puxam da Demanda */}
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Cabo Geral Interno:</Text>
-          <Text style={styles.valorAmarelo}>{resultadoQDC.caboGeral} mm²</Text>
+          <Text style={styles.labelBranco}>Cabo Alimentador Interno:</Text>
+          <Text style={styles.valorAmarelo}>
+            {resultadoDemanda.caboGeral} mm²
+          </Text>
         </View>
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Disjuntor (QDC):</Text>
+          <Text style={styles.labelBranco}>Disjuntor Geral (QDC):</Text>
           <Text style={styles.valorAmarelo}>
-            {resultadoQDC.disjuntorGeral} A
+            {resultadoDemanda.disjuntorGeral} A
           </Text>
         </View>
       </View>
 
-      {/* CARTÃO AZUL: DEMANDA (CONCESSIONÁRIA) */}
+      {/* CARTÃO AZUL: PADRÃO DE ENTRADA (MANTÉM-SE INTACTO) */}
       <View style={[styles.cardRelatorio, { backgroundColor: "#312e81" }]}>
         <Text style={[styles.tituloRelatorio, { color: "#c7d2fe" }]}>
-          🏢 PADRÃO DE ENTRADA - DEMANDA ({concessionaria}):
+          🏢 PADRÃO DE ENTRADA ({concessionaria}):
         </Text>
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Demanda Calculada (S):</Text>
+          <Text style={styles.labelBranco}>Demanda Corrigida (S):</Text>
           <Text style={[styles.valorAmarelo, { color: "#ca8a04" }]}>
             {resultadoDemanda.potenciaTotalVA} VA
           </Text>
@@ -66,13 +70,13 @@ export function CardResumoQuadro({
           </Text>
         </View>
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Cabo Ramal Padrão:</Text>
+          <Text style={styles.labelBranco}>Cabo do Ramal (Medidor):</Text>
           <Text style={styles.valorAmarelo}>
             {resultadoDemanda.caboGeral} mm²
           </Text>
         </View>
         <View style={styles.linhaResumo}>
-          <Text style={styles.labelBranco}>Disjuntor Geral (Medidor):</Text>
+          <Text style={styles.labelBranco}>Disjuntor Geral (Poste):</Text>
           <Text style={styles.valorAmarelo}>
             {resultadoDemanda.disjuntorGeral} A
           </Text>

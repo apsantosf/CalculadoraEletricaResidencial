@@ -1,5 +1,5 @@
-//   src/components/ui/CustomHeader.tsx
-import Constants from "expo-constants"; // Importação para ler a versão
+// src/components/ui/CustomHeader.tsx
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import {
   Alert,
@@ -17,9 +17,9 @@ interface CustomHeaderProps {
 }
 
 export default function CustomHeader({ title }: CustomHeaderProps) {
-  const { zerarProjeto } = useData();
+  // 💡 1. Adicionamos a tensaoGeral aqui na desestruturação
+  const { zerarProjeto, tensaoGeral } = useData();
 
-  // Lê a versão definida no campo 'version' do app.json, com um fallback seguro
   const appVersion = Constants.expoConfig?.version || "1.0.0";
 
   const handleSairDoSistema = () => {
@@ -29,7 +29,7 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
       );
       if (confirmou) {
         zerarProjeto();
-        router.replace("/"); // Volta para a tela inicial na Web
+        router.replace("/");
       }
     } else {
       Alert.alert(
@@ -42,7 +42,7 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
             style: "destructive",
             onPress: () => {
               zerarProjeto();
-              router.replace("/"); // Volta para a tela inicial no Android/iOS
+              router.replace("/");
             },
           },
         ],
@@ -64,8 +64,13 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
         </Text>
       </View>
 
-      {/* Lado Direito: Versão e Botão X alinhados */}
+      {/* Lado Direito: Badge Voltagem, Versão e Botão X */}
       <View style={styles.rightContainer}>
+        {/* 💡 2. NOVA ETIQUETA DE VOLTAGEM */}
+        <View style={styles.badgeTensao}>
+          <Text style={styles.textoBadgeTensao}>⚡ {tensaoGeral}V</Text>
+        </View>
+
         <Text style={styles.versionText}>v{appVersion}</Text>
         <TouchableOpacity
           onPress={handleSairDoSistema}
@@ -93,18 +98,34 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
-    // No Android, damos um espaço para a barra de estado
     marginTop: Platform.OS === "android" ? 24 : 0,
   },
   rightContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
+
+  // 💡 3. ESTILOS DA NOVA ETIQUETA
+  badgeTensao: {
+    backgroundColor: "#fffbeb",
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginRight: 10, // Mantém um distanciamento elegante da versão
+  },
+  textoBadgeTensao: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#d97706",
+  },
+
   versionText: {
     fontSize: 11,
     color: "#6b7280",
     fontWeight: "600",
-    marginRight: 12,
+    marginRight: 8,
   },
   botaoSair: {
     padding: 8,

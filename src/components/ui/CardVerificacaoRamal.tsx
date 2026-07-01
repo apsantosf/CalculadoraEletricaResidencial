@@ -12,7 +12,6 @@ import {
 import { useData } from "../../context/DataContext";
 import {
   determinarTipoFornecimento,
-  obterFatorDemandaGeral,
   processarTrechoRamal,
 } from "../../utils/calculations";
 
@@ -32,13 +31,20 @@ export function CardVerificacaoRamal({
   const [distanciaInterna, setDistanciaInterna] = useState("");
   const [potenciaEditavel, setPotenciaEditavel] = useState("");
   const [resultadosLocal, setResultadosLocal] = useState<any>(null);
+  const [reservaAplicada, setReservaAplicada] = useState(false);
+
+  // 💡 Identifica em tempo real se a potência inserida já exige o sistema Trifásico obrigatoriamente
+  const potAtual = parseFloat(potenciaEditavel) || 0;
+  const obrigatorioTrifasico = potAtual >= 25000;
 
   useEffect(() => {
     if (potenciaBase > 0) {
       setPotenciaEditavel(potenciaBase.toString());
+      setReservaAplicada(false);
     } else {
       setPotenciaEditavel("");
       setResultadosLocal(null);
+      setReservaAplicada(false);
       onCalcularRamal(null);
     }
   }, [potenciaBase]);
@@ -47,47 +53,63 @@ export function CardVerificacaoRamal({
     if (resultadosLocal) {
       handleCalcular();
     }
-  }, [sistemaDistribuicao]);
+  }, [sistemaDistribuicao, tensaoGeral]);
 
   const handleCalcular = () => {
-    const pot = parseFloat(potenciaEditavel);
+    const potBrutaAlvo = parseFloat(potenciaEditavel);
     const distExt = parseFloat(distanciaExterna.replace(",", "."));
     const distInt = parseFloat(distanciaInterna.replace(",", "."));
 
-    if (isNaN(pot) || pot <= 0)
-      return Alert.alert("Atenção", "Informe uma potência total válida.");
-    if (isNaN(distExt) || isNaN(distInt))
-      return Alert.alert("Atenção", "Preencha as distâncias corretamente.");
+    if (isNaN(potBrutaAlvo) || potBrutaAlvo <= 0) {
+      if (Platform.OS === "web")
+        window.alert("Informe uma potência total válida.");
+      else Alert.alert("Atenção", "Informe uma potência total válida.");
+      return;
+    }
 
-    const fatorDemanda = obterFatorDemandaGeral(pot);
-    const potenciaDemanda = pot * fatorDemanda;
-    const correnteDemanda = potenciaDemanda / tensaoGeral;
-    const caboMinimo = 10;
+    if (isNaN(distExt) || isNaN(distInt)) {
+      if (Platform.OS === "web")
+        window.alert(
+          "Preencha as distâncias corretamente antes de dimensionar.",
+        );
+      else Alert.alert("Atenção", "Preencha as distâncias corretamente.");
+      return;
+    }
+
+    const correnteDemanda = potBrutaAlvo / tensaoGeral;
+    const caboMinimoRua = 10;
+    const caboMinimoInterno = 4;
 
     const trecho1 = processarTrechoRamal(
       distExt,
       correnteDemanda,
       tensaoGeral,
-      caboMinimo,
+      caboMinimoRua,
       sistemaDistribuicao,
     );
     const trecho2 = processarTrechoRamal(
       distInt,
       correnteDemanda,
       tensaoGeral,
-      0,
+      caboMinimoInterno,
       sistemaDistribuicao,
     );
 
+    let fornecimentoCalculado = determinarTipoFornecimento(
+      trecho1.disjuntor,
+      tensaoGeral,
+      sistemaDistribuicao,
+    );
+
+    if (potBrutaAlvo >= 25000) {
+      fornecimentoCalculado = "Trifásico (3 Polos)";
+    }
+
     const resumoResultados = {
-      fatorAplicado: Math.round(fatorDemanda * 100),
-      potenciaDemanda: Math.round(potenciaDemanda),
+      cargaInstaladaConsiderada: Math.round(potBrutaAlvo),
+      potenciaDemanda: Math.round(potBrutaAlvo),
       correnteDemanda: Number(correnteDemanda.toFixed(1)),
-      fornecimento: determinarTipoFornecimento(
-        trecho1.disjuntor,
-        tensaoGeral,
-        sistemaDistribuicao,
-      ),
+      fornecimento: fornecimentoCalculado,
       trecho1,
       trecho2,
     };
@@ -96,19 +118,26 @@ export function CardVerificacaoRamal({
     onCalcularRamal(resumoResultados);
   };
 
-  // 💡 NOVA FUNÇÃO: Exibe a explicação técnica para o usuário
-  const mostrarInfoFases = () => {
+  const mostrarInfoReserva = () => {
     const mensagem =
-      "Por que 220V pode ser Monofásico ou Bifásico?\n\n" +
-      "• Sistema 127/220V (SP, RJ, MG...): A fase da rua tem 127V. Para obter 220V, são necessárias 2 fases (Bifásico).\n\n" +
-      "• Sistema 220/380V (NE, SC, DF...): A fase da rua já possui 220V. Logo, usa-se apenas 1 fase (Monofásico) para obter 220V.\n\n" +
-      "O aplicativo ajustou essa classificação automaticamente com base na região que você selecionou no início do projeto.";
+      "Dica de Projeto: Reserva para o Futuro\n\n" +
+      "Se planeja instalar novos equipamentos nos próximos anos, aumente este valor em cerca de 30% para garantir a folga dos cabos e disjuntores principais.";
 
-    if (Platform.OS === "web") {
-      window.alert(mensagem);
-    } else {
-      Alert.alert("Entenda a Classificação", mensagem);
-    }
+    if (Platform.OS === "web") window.alert(mensagem);
+    else Alert.alert("Reserva de Carga", mensagem);
+  };
+
+  const aplicarReserva = () => {
+    if (obrigatorioTrifasico) return;
+    const novaPotencia = Math.round(potenciaBase * 1.3);
+    setPotenciaEditavel(novaPotencia.toString());
+    setReservaAplicada(true);
+  };
+
+  const removerReserva = () => {
+    if (obrigatorioTrifasico) return;
+    setPotenciaEditavel(potenciaBase.toString());
+    setReservaAplicada(false);
   };
 
   return (
@@ -121,14 +150,82 @@ export function CardVerificacaoRamal({
         maiores.
       </Text>
 
-      <Text style={styles.labelInput}>Potência Alvo do Ramal (Watts/VA)</Text>
+      <View style={styles.headerInfoContainer}>
+        <Text style={styles.labelInputInfo}>
+          Potência Bruta Alvo (Watts/VA)
+        </Text>
+        <TouchableOpacity
+          style={styles.botaoInfoIcone}
+          onPress={mostrarInfoReserva}
+        >
+          <Text style={styles.textoInfoIcone}>ℹ️ Dica</Text>
+        </TouchableOpacity>
+      </View>
+
       <TextInput
-        style={styles.input}
+        style={[styles.input, { marginBottom: 4 }]}
         keyboardType="numeric"
         value={potenciaEditavel}
-        onChangeText={setPotenciaEditavel}
+        onChangeText={(txt) => {
+          setPotenciaEditavel(txt);
+          setReservaAplicada(false);
+        }}
         placeholder="Ex: 15000"
       />
+
+      {/* 💡 MENSAGEM DE BLOQUEIO SE JÁ FOR TRIFÁSICO OBRIGATÓRIO */}
+      {obrigatorioTrifasico && (
+        <View style={styles.alertaBloqueioBotoes}>
+          <Text style={styles.textoAlertaBloqueio}>
+            ⚠️ Sistema travado em modo Trifásico. A carga instalada atual já
+            atingiu ou superou o limite regulamentar de 25.000 VA,
+            impossibilitando o uso de redes bifásicas ou monofásicas. Os botões
+            de modificação de reserva foram desativados.
+          </Text>
+        </View>
+      )}
+
+      {potenciaBase > 0 && (
+        <View style={styles.containerReservaAcao}>
+          {!reservaAplicada ? (
+            <TouchableOpacity
+              style={[
+                styles.botaoAcaoReserva,
+                obrigatorioTrifasico && styles.botaoDesativado,
+              ]}
+              onPress={aplicarReserva}
+              disabled={obrigatorioTrifasico}
+            >
+              <Text
+                style={[
+                  styles.textoBotaoAcaoReserva,
+                  obrigatorioTrifasico && styles.textoDesativado,
+                ]}
+              >
+                ⚡ Adicionar +30% de Reserva Futura
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.botaoAcaoRemover,
+                obrigatorioTrifasico && styles.botaoDesativado,
+              ]}
+              onPress={removerReserva}
+              disabled={obrigatorioTrifasico}
+            >
+              <Text
+                style={[
+                  styles.textoBotaoAcaoRemover,
+                  obrigatorioTrifasico && styles.textoDesativado,
+                ]}
+              >
+                ↩️ Remover Reserva (Voltar a {potenciaBase} VA)
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       <View style={styles.row}>
         <View style={styles.col}>
@@ -166,18 +263,29 @@ export function CardVerificacaoRamal({
             <Text style={styles.txtFornecimentoDestaque}>
               {resultadosLocal.fornecimento}
             </Text>
-            {/* 💡 NOVO BOTÃO DE INFORMAÇÃO */}
-            <TouchableOpacity
-              style={styles.botaoInfo}
-              onPress={mostrarInfoFases}
-            >
-              <Text style={styles.textoInfo}>ℹ️ Entenda</Text>
-            </TouchableOpacity>
           </View>
 
           <Text style={styles.txtDemandaAplicada}>
-            Demanda Estimada: {resultadosLocal.potenciaDemanda} VA
+            Ramal Dimensionado para: {resultadosLocal.potenciaDemanda} VA (
+            {resultadosLocal.correnteDemanda} A)
           </Text>
+
+          {resultadosLocal.cargaInstaladaConsiderada >= 25000 && (
+            <View style={styles.alertaTrifasico}>
+              <Text style={styles.alertaTrifasicoTitulo}>
+                ⚠️ ATENÇÃO: LIMITE BIFÁSICO EXCEDIDO
+              </Text>
+              <Text style={styles.alertaTrifasicoTexto}>
+                A Carga Instalada (Potência Bruta) do projeto atingiu{" "}
+                {resultadosLocal.cargaInstaladaConsiderada} VA, ultrapassando o
+                limite de 25.000 VA. Pelas normas da concessionária, torna-se
+                obrigatória a transição para um fornecimento Trifásico. O
+                sistema não pode operar sob rede Bifásica neste nível de
+                potência.
+              </Text>
+            </View>
+          )}
+
           <View style={styles.linhaTrecho}>
             <Text style={styles.lblTrecho}>📍 Conexão da Rua ao Medidor:</Text>
             <Text style={styles.valTrecho}>
@@ -218,6 +326,20 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     fontStyle: "italic",
   },
+  headerInfoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  labelInputInfo: { fontSize: 13, fontWeight: "600", color: "#374151" },
+  botaoInfoIcone: {
+    backgroundColor: "#dbeafe",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  textoInfoIcone: { fontSize: 10, color: "#1e40af", fontWeight: "bold" },
   labelInput: {
     fontSize: 13,
     fontWeight: "600",
@@ -233,6 +355,49 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 15,
   },
+  containerReservaAcao: { marginBottom: 16, alignItems: "flex-start" },
+  botaoAcaoReserva: {
+    backgroundColor: "#f0fdf4",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  textoBotaoAcaoReserva: { color: "#166534", fontSize: 11, fontWeight: "bold" },
+  botaoAcaoRemover: {
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  textoBotaoAcaoRemover: { color: "#991b1b", fontSize: 11, fontWeight: "bold" },
+
+  // 💡 NOVOS ESTILOS PARA TRAVAMENTO E ALERTAS
+  botaoDesativado: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
+  },
+  textoDesativado: {
+    color: "#9ca3af",
+  },
+  alertaBloqueioBotoes: {
+    backgroundColor: "#fff1f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+  },
+  textoAlertaBloqueio: {
+    color: "#991b1b",
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "justify",
+  },
+
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
   botaoCalcularRamal: {
@@ -251,8 +416,6 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 16,
   },
-
-  // Estilos atualizados para o cabeçalho com o botão de info
   headerResultado: {
     flexDirection: "column",
     alignItems: "center",
@@ -264,21 +427,32 @@ const styles = StyleSheet.create({
     color: "#1d4ed8",
     textAlign: "center",
   },
-  botaoInfo: {
-    backgroundColor: "#dbeafe",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 6,
-  },
-  textoInfo: { fontSize: 11, color: "#1e40af", fontWeight: "600" },
-
   txtDemandaAplicada: {
     fontSize: 12,
     color: "#3b82f6",
     textAlign: "center",
     marginBottom: 12,
     fontWeight: "500",
+  },
+  alertaTrifasico: {
+    backgroundColor: "#fffbeb",
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  alertaTrifasicoTitulo: {
+    color: "#d97706",
+    fontWeight: "bold",
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  alertaTrifasicoTexto: {
+    color: "#92400e",
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "justify",
   },
   linhaTrecho: {
     flexDirection: "column",

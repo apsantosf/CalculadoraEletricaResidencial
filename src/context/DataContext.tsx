@@ -8,11 +8,15 @@ export type TipoSistema = "127/220V" | "220/380V";
 interface DataContextType {
   tensaoGeral: 127 | 220;
   setTensaoGeral: (tensao: 127 | 220) => void;
-  concessionaria: string;
-  setConcessionaria: (concessionaria: string) => void;
-  // 2. A nova variável e função do sistema de distribuição dentro da interface
+
+  // 💡 Nomes atualizados para "distribuidora"
+  distribuidora: string;
+  setDistribuidora: (dist: string) => void;
+
+  // 2. A variável e função do sistema de distribuição dentro da interface
   sistemaDistribuicao: TipoSistema;
   setSistemaDistribuicao: (sistema: TipoSistema) => void;
+
   comodos: Comodo[];
   adicionarComodo: (novoComodo: Comodo) => void;
   removerComodo: (id: string) => void;
@@ -35,7 +39,10 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tensaoGeral, setTensaoGeral] = useState<127 | 220>(127);
-  const [concessionaria, setConcessionaria] = useState<string>("CPFL");
+
+  // 💡 Estado atualizado para "distribuidora"
+  const [distribuidora, setDistribuidora] = useState<string>("CPFL");
+
   // 3. A variável de estado real
   const [sistemaDistribuicao, setSistemaDistribuicao] =
     useState<TipoSistema>("127/220V");
@@ -111,9 +118,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       value={{
         tensaoGeral,
         setTensaoGeral,
-        concessionaria,
-        setConcessionaria,
-        sistemaDistribuicao, // 4. O fornecimento no Provider
+        distribuidora, // 💡 Exportando o nome correto
+        setDistribuidora, // 💡 Exportando a função correta
+        sistemaDistribuicao,
         setSistemaDistribuicao,
         comodos,
         adicionarComodo,

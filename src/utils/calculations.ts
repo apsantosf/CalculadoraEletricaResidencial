@@ -38,14 +38,22 @@ export const encontrarDisjuntorComercial = (
   correnteDemanda: number,
   capacidadeCabo: number,
 ): number => {
+  // 🐛 CORREÇÃO 1: Adicionados disjuntores maiores para suportar os cálculos de alta demanda
   const disjuntoresComerciais = [
-    10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125,
+    10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125, 150, 175, 200, 225, 250,
   ];
+
   const adequados = disjuntoresComerciais.filter(
     (d) => d >= correnteDemanda && d <= capacidadeCabo,
   );
+
   if (adequados.length > 0) return adequados[0];
-  return disjuntoresComerciais.find((d) => d >= correnteDemanda) || 125;
+
+  // Se não encontrar, retorna o maior possível em vez de travar no 125
+  return (
+    disjuntoresComerciais.find((d) => d >= correnteDemanda) ||
+    disjuntoresComerciais[disjuntoresComerciais.length - 1]
+  );
 };
 
 // A MÁGICA ESTÁ AQUI: Leva em conta a tensão e a região!
@@ -216,15 +224,31 @@ export const calcularAlimentadorGeral = (dados: {
 }) => {
   const somaTues = dados.potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
   const potenciaTotalVA = dados.potenciaIlumTugVA + somaTues;
-  const correnteGeral = potenciaTotalVA / dados.tensao;
+
+  // 🐛 CORREÇÃO 2: A Mágica do Trifásico
+  let correnteGeral = 0;
+
+  if (potenciaTotalVA > 25000) {
+    // Ultrapassou 25kW? A CPFL obriga a ser Trifásico.
+    // Fórmula: Corrente = Potência / (Tensão de Linha * Raiz de 3)
+    const tensaoLinha = dados.tensao === 127 ? 220 : dados.tensao;
+    correnteGeral = potenciaTotalVA / (tensaoLinha * Math.sqrt(3));
+  } else {
+    // Casas normais (Monofásico/Bifásico)
+    correnteGeral = potenciaTotalVA / dados.tensao;
+  }
+
+  // 🐛 CORREÇÃO 3: Fallback Seguro. Se exceder a tabela, sugere o cabo mais grosso (120mm) e não o de 6mm.
   const caboIdeal =
     tabelaCondutores.find(
       (c) => c.capacidadeCorrente >= correnteGeral && c.bitola >= 6.0,
-    ) || tabelaCondutores[3];
+    ) || tabelaCondutores[tabelaCondutores.length - 1];
+
   const disjuntorGeral = encontrarDisjuntorComercial(
     correnteGeral,
     caboIdeal.capacidadeCorrente,
   );
+
   return {
     potenciaTotalVA: Math.round(potenciaTotalVA),
     correnteGeral: Number(correnteGeral.toFixed(1)),
