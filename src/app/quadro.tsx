@@ -33,31 +33,53 @@ export default function TelaQuadro() {
   const { comodos, tensaoGeral, concessionaria, removerComodo } = useData();
   const [resultadosRamal, setResultadosRamal] = useState<any>(null);
 
+  // 💡 LIFTING DE ESTADO: O controle da Reserva agora fica no arquivo principal
+  const [reservaAplicada, setReservaAplicada] = useState(false);
+
   const calcularPotenciasAtuais = () => {
     let somaIlumTugVA = 0;
     let listaWattsTue: number[] = [];
-    let totalBruto = 0;
+    let totalBrutoOriginal = 0;
+
+    // Se a reserva estiver ativada, multiplicamos tudo por 1.3 (30%)
+    const fatorMultiplicador = reservaAplicada ? 1.3 : 1.0;
 
     comodos.forEach((c) => {
       c.dispositivos.forEach((d) => {
-        const potTotal = d.potencia * d.quantidade;
-        totalBruto += potTotal;
+        const potOriginal = d.potencia * d.quantidade;
+        totalBrutoOriginal += potOriginal;
+
+        // Aplica o fator de reserva em cada dispositivo
+        const potComReserva = potOriginal * fatorMultiplicador;
+
         if (d.tipo === "iluminacao" || d.tipo === "tug")
-          somaIlumTugVA += potTotal;
-        else if (d.tipo === "tue") listaWattsTue.push(potTotal);
+          somaIlumTugVA += potComReserva;
+        else if (d.tipo === "tue") listaWattsTue.push(potComReserva);
       });
     });
 
-    return { somaIlumTugVA, listaWattsTue, totalBruto };
+    const totalBrutoAplicado = totalBrutoOriginal * fatorMultiplicador;
+
+    return {
+      somaIlumTugVA,
+      listaWattsTue,
+      totalBrutoOriginal,
+      totalBrutoAplicado,
+    };
   };
 
-  const { totalBruto } = calcularPotenciasAtuais();
+  const {
+    somaIlumTugVA,
+    listaWattsTue,
+    totalBrutoOriginal,
+    totalBrutoAplicado,
+  } = calcularPotenciasAtuais();
   const projetoTemDados = comodos && comodos.length > 0;
 
   const resultadoQDC = projetoTemDados
     ? calcularAlimentadorGeral({
-        potenciaIlumTugVA: calcularPotenciasAtuais().somaIlumTugVA,
-        potenciasTueWatts: calcularPotenciasAtuais().listaWattsTue,
+        potenciaIlumTugVA: somaIlumTugVA,
+        potenciasTueWatts: listaWattsTue,
         tensao: tensaoGeral,
       })
     : null;
@@ -65,17 +87,12 @@ export default function TelaQuadro() {
   const resultadoDemanda = projetoTemDados
     ? calcularAlimentadorGeral({
         potenciaIlumTugVA:
-          calcularPotenciasAtuais().somaIlumTugVA +
-          aplicarDemandaTues(
-            calcularPotenciasAtuais().listaWattsTue,
-            concessionaria,
-          ),
+          somaIlumTugVA + aplicarDemandaTues(listaWattsTue, concessionaria),
         potenciasTueWatts: [],
         tensao: tensaoGeral,
       })
     : null;
 
-  // Função para gerar o PDF Formal
   const handleGerarPDF = async () => {
     await gerarMemorialPDF({
       comodos,
@@ -87,7 +104,6 @@ export default function TelaQuadro() {
     });
   };
 
-  // Função para enviar Resumo via WhatsApp/Texto
   const handleCompartilharRelatorio = async () => {
     let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
     texto += `📐 Norma NBR 5410 e Distribuidora (${concessionaria})\n`;
@@ -143,14 +159,16 @@ export default function TelaQuadro() {
         style={styles.container}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
-        {/* 1. Formulário Isolado do Ramal de Entrada */}
+        {/* 💡 O Card de Ramal agora recebe os controles de Reserva do pai */}
         <CardVerificacaoRamal
-          potenciaBase={totalBruto}
+          potenciaTotal={totalBrutoAplicado}
+          potenciaOriginal={totalBrutoOriginal}
           tensaoGeral={tensaoGeral}
+          reservaAplicada={reservaAplicada}
+          onToggleReserva={setReservaAplicada}
           onCalcularRamal={setResultadosRamal}
         />
 
-        {/* 2. Lista de Cômodos Cadastrados */}
         {projetoTemDados && (
           <View style={styles.quadroContainer}>
             <Text style={styles.subtitulo}>📋 Relação de Cômodos</Text>
@@ -159,7 +177,6 @@ export default function TelaQuadro() {
                 <View key={c.id} style={styles.itemCircuito}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nomeCircuito}>{c.nome}</Text>
-                    {/* Alteração aqui: Lista detalhada dos dispositivos no ecrã */}
                     {c.dispositivos.map((d, index) => (
                       <Text key={index} style={styles.textoDetalhe}>
                         ↳ {d.quantidade}x {d.nome} ({d.potencia * d.quantidade}{" "}
@@ -177,7 +194,6 @@ export default function TelaQuadro() {
               ))}
             </View>
 
-            {/* 3. Resultados Automáticos do Quadro Geral */}
             {resultadoQDC && resultadoDemanda && (
               <CardResumoQuadro
                 resultadoQDC={resultadoQDC}

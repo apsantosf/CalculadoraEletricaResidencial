@@ -16,14 +16,20 @@ import {
 } from "../../utils/calculations";
 
 interface CardVerificacaoRamalProps {
-  potenciaBase: number;
+  potenciaTotal: number;
+  potenciaOriginal: number;
   tensaoGeral: number;
+  reservaAplicada: boolean;
+  onToggleReserva: (status: boolean) => void;
   onCalcularRamal: (resultados: any) => void;
 }
 
 export function CardVerificacaoRamal({
-  potenciaBase,
+  potenciaTotal,
+  potenciaOriginal,
   tensaoGeral,
+  reservaAplicada,
+  onToggleReserva,
   onCalcularRamal,
 }: CardVerificacaoRamalProps) {
   const { sistemaDistribuicao } = useData();
@@ -31,23 +37,20 @@ export function CardVerificacaoRamal({
   const [distanciaInterna, setDistanciaInterna] = useState("");
   const [potenciaEditavel, setPotenciaEditavel] = useState("");
   const [resultadosLocal, setResultadosLocal] = useState<any>(null);
-  const [reservaAplicada, setReservaAplicada] = useState(false);
 
-  // 💡 Identifica em tempo real se a potência inserida já exige o sistema Trifásico obrigatoriamente
   const potAtual = parseFloat(potenciaEditavel) || 0;
   const obrigatorioTrifasico = potAtual >= 25000;
 
   useEffect(() => {
-    if (potenciaBase > 0) {
-      setPotenciaEditavel(potenciaBase.toString());
-      setReservaAplicada(false);
+    if (potenciaTotal > 0) {
+      setPotenciaEditavel(potenciaTotal.toString());
     } else {
       setPotenciaEditavel("");
       setResultadosLocal(null);
-      setReservaAplicada(false);
+      onToggleReserva(false);
       onCalcularRamal(null);
     }
-  }, [potenciaBase]);
+  }, [potenciaTotal]);
 
   useEffect(() => {
     if (resultadosLocal) {
@@ -121,7 +124,7 @@ export function CardVerificacaoRamal({
   const mostrarInfoReserva = () => {
     const mensagem =
       "Dica de Projeto: Reserva para o Futuro\n\n" +
-      "Se planeja instalar novos equipamentos nos próximos anos, aumente este valor em cerca de 30% para garantir a folga dos cabos e disjuntores principais.";
+      "Se planeja instalar novos equipamentos nos próximos anos, aumente este valor em cerca de 30% para garantir a folga dos cabos e disjuntores principais em todos os quadros.";
 
     if (Platform.OS === "web") window.alert(mensagem);
     else Alert.alert("Reserva de Carga", mensagem);
@@ -129,15 +132,12 @@ export function CardVerificacaoRamal({
 
   const aplicarReserva = () => {
     if (obrigatorioTrifasico) return;
-    const novaPotencia = Math.round(potenciaBase * 1.3);
-    setPotenciaEditavel(novaPotencia.toString());
-    setReservaAplicada(true);
+    onToggleReserva(true);
   };
 
   const removerReserva = () => {
     if (obrigatorioTrifasico) return;
-    setPotenciaEditavel(potenciaBase.toString());
-    setReservaAplicada(false);
+    onToggleReserva(false);
   };
 
   return (
@@ -168,12 +168,11 @@ export function CardVerificacaoRamal({
         value={potenciaEditavel}
         onChangeText={(txt) => {
           setPotenciaEditavel(txt);
-          setReservaAplicada(false);
+          onToggleReserva(false);
         }}
         placeholder="Ex: 15000"
       />
 
-      {/* 💡 MENSAGEM DE BLOQUEIO SE JÁ FOR TRIFÁSICO OBRIGATÓRIO */}
       {obrigatorioTrifasico && (
         <View style={styles.alertaBloqueioBotoes}>
           <Text style={styles.textoAlertaBloqueio}>
@@ -185,45 +184,32 @@ export function CardVerificacaoRamal({
         </View>
       )}
 
-      {potenciaBase > 0 && (
+      {potenciaOriginal > 0 && (
         <View style={styles.containerReservaAcao}>
-          {!reservaAplicada ? (
-            <TouchableOpacity
+          {/* 💡 CORREÇÃO AQUI: Botão unificado que apenas muda de estado visualmente */}
+          <TouchableOpacity
+            style={[
+              reservaAplicada
+                ? styles.botaoAcaoRemover
+                : styles.botaoAcaoReserva,
+              obrigatorioTrifasico && styles.botaoDesativado,
+            ]}
+            onPress={reservaAplicada ? removerReserva : aplicarReserva}
+            disabled={obrigatorioTrifasico}
+          >
+            <Text
               style={[
-                styles.botaoAcaoReserva,
-                obrigatorioTrifasico && styles.botaoDesativado,
+                reservaAplicada
+                  ? styles.textoBotaoAcaoRemover
+                  : styles.textoBotaoAcaoReserva,
+                obrigatorioTrifasico && styles.textoDesativado,
               ]}
-              onPress={aplicarReserva}
-              disabled={obrigatorioTrifasico}
             >
-              <Text
-                style={[
-                  styles.textoBotaoAcaoReserva,
-                  obrigatorioTrifasico && styles.textoDesativado,
-                ]}
-              >
-                ⚡ Adicionar +30% de Reserva Futura
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.botaoAcaoRemover,
-                obrigatorioTrifasico && styles.botaoDesativado,
-              ]}
-              onPress={removerReserva}
-              disabled={obrigatorioTrifasico}
-            >
-              <Text
-                style={[
-                  styles.textoBotaoAcaoRemover,
-                  obrigatorioTrifasico && styles.textoDesativado,
-                ]}
-              >
-                ↩️ Remover Reserva (Voltar a {potenciaBase} VA)
-              </Text>
-            </TouchableOpacity>
-          )}
+              {reservaAplicada
+                ? `↩️ Remover Reserva (Voltar a ${potenciaOriginal} VA)`
+                : `⚡ Adicionar +30% de Reserva Futura`}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -375,7 +361,6 @@ const styles = StyleSheet.create({
   },
   textoBotaoAcaoRemover: { color: "#991b1b", fontSize: 11, fontWeight: "bold" },
 
-  // 💡 NOVOS ESTILOS PARA TRAVAMENTO E ALERTAS
   botaoDesativado: {
     backgroundColor: "#f3f4f6",
     borderColor: "#e5e7eb",
