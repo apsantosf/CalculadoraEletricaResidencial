@@ -45,7 +45,7 @@ export default function ScreenComodos() {
   const [resultadoPrevio, setResultadoPrevio] = useState<any>(null);
 
   const mostrarInfoAreaPerimetro = () => {
-    const mensagem =
+    const message =
       "Perímetro é a medida do contorno de uma figura geométrica, medido em metros (m).\n\n" +
       "Área (m²) é a medida da superfície (o espaço interno) de uma figura plana. O metro quadrado (m²) representa um quadrado com 1 metro de largura e 1 metro de altura.\n\n" +
       "1. Uma Sala Quadrada (4m x 4m)\n" +
@@ -56,9 +56,9 @@ export default function ScreenComodos() {
       "• Área: 10x20 = 200 m² (ex: espaço total)";
 
     if (Platform.OS === "web") {
-      window.alert(mensagem);
+      window.alert(message);
     } else {
-      Alert.alert("Como calcular Área e Perímetro?", mensagem);
+      Alert.alert("Como calcular Área e Perímetro?", message);
     }
   };
 
@@ -120,6 +120,7 @@ export default function ScreenComodos() {
     setResultadoPrevio(dispositivos);
   };
 
+  // 💡 CORRIGIDO: Nome da função ajustado para executarAdicao (com 'x')
   const executarAdicao = () => {
     if (!area || !perimetro) {
       const msg = "Preencha a Área e o Perímetro antes de adicionar.";
@@ -142,7 +143,11 @@ export default function ScreenComodos() {
     setResultadoPrevio(null);
   };
 
-  const comodosOrdenados = [...comodos].sort((a, b) =>
+  const comodosReais = comodos.filter(
+    (c) => !c.nome.startsWith("Circuito Dedicado:"),
+  );
+
+  const comodosOrdenados = [...comodosReais].sort((a, b) =>
     a.nome.localeCompare(b.nome),
   );
 
@@ -251,7 +256,6 @@ export default function ScreenComodos() {
               <Text style={styles.textoBotaoBranco}>Dimensionar</Text>
             </TouchableOpacity>
 
-            {/* 💡 AQUI: Botão Adicionar recebe estilo verde condicionalmente */}
             <TouchableOpacity
               style={[
                 styles.botaoAdicionar,
@@ -264,7 +268,7 @@ export default function ScreenComodos() {
           </View>
         </View>
 
-        <Text style={styles.tituloLista}>📋 Relação de Cômodos e TUEs</Text>
+        <Text style={styles.tituloLista}>📋 Relação de Cômodos</Text>
         {comodosOrdenados.length === 0 && (
           <Text
             style={{ textAlign: "center", color: "#6b7280", marginTop: 20 }}
@@ -392,7 +396,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: 6,
   },
-  // 💡 AQUI: Classe que aplica o verde vibrante quando a simulação está feita
   botaoAdicionarPronto: {
     backgroundColor: "#059669",
   },
