@@ -2,7 +2,7 @@
   "expo": {
     "name": "Elétrica Residencial",
     "slug": "CalculadoraEletricaResidencial",
-    "version": "1.9.5",
+    "version": "1.9.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
@@ -15,7 +15,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.apsantosf.eletricaresidencial",
-      "versionCode": 18
+      "versionCode": 19
     },
     "plugins": [
       "expo-router",
