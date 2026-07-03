@@ -1,7 +1,7 @@
 {
   "name": "calculadoraeletricaresidencial",
   "main": "expo-router/entry",
-  "version": "1.9.6",
+  "version": "2.0.0",
   "dependencies": {
     "@expo/ui": "~56.0.18",
     "@expo/vector-icons": "^15.0.2",

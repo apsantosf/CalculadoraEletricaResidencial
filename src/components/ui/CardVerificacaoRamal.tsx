@@ -32,7 +32,7 @@ export function CardVerificacaoRamal({
   onToggleReserva,
   onCalcularRamal,
 }: CardVerificacaoRamalProps) {
-  const { sistemaDistribuicao } = useData();
+  const { sistemaDistribuicao, tipoImovel } = useData();
   const [distanciaExterna, setDistanciaExterna] = useState("");
   const [distanciaInterna, setDistanciaInterna] = useState("");
   const [potenciaEditavel, setPotenciaEditavel] = useState("");
@@ -56,11 +56,14 @@ export function CardVerificacaoRamal({
     if (resultadosLocal) {
       handleCalcular();
     }
-  }, [sistemaDistribuicao, tensaoGeral]);
+  }, [sistemaDistribuicao, tensaoGeral, tipoImovel]);
 
   const handleCalcular = () => {
     const potBrutaAlvo = parseFloat(potenciaEditavel);
-    const distExt = parseFloat(distanciaExterna.replace(",", "."));
+    const distExt =
+      tipoImovel === "Casa"
+        ? parseFloat(distanciaExterna.replace(",", "."))
+        : 0;
     const distInt = parseFloat(distanciaInterna.replace(",", "."));
 
     if (isNaN(potBrutaAlvo) || potBrutaAlvo <= 0) {
@@ -70,36 +73,36 @@ export function CardVerificacaoRamal({
       return;
     }
 
-    if (isNaN(distExt) || isNaN(distInt)) {
+    if ((tipoImovel === "Casa" && isNaN(distExt)) || isNaN(distInt)) {
       if (Platform.OS === "web")
-        window.alert(
-          "Preencha as distâncias corretamente antes de dimensionar.",
-        );
+        window.alert("Preencha as distâncias corretamente.");
       else Alert.alert("Atenção", "Preencha as distâncias corretamente.");
       return;
     }
 
     const correnteDemanda = potBrutaAlvo / tensaoGeral;
-    const caboMinimoRua = 10;
-    const caboMinimoInterno = 4;
 
-    const trecho1 = processarTrechoRamal(
-      distExt,
-      correnteDemanda,
-      tensaoGeral,
-      caboMinimoRua,
-      sistemaDistribuicao,
-    );
+    const trecho1 =
+      tipoImovel === "Casa"
+        ? processarTrechoRamal(
+            distExt,
+            correnteDemanda,
+            tensaoGeral,
+            10,
+            sistemaDistribuicao,
+          )
+        : null;
+
     const trecho2 = processarTrechoRamal(
       distInt,
       correnteDemanda,
       tensaoGeral,
-      caboMinimoInterno,
+      4,
       sistemaDistribuicao,
     );
 
     let fornecimentoCalculado = determinarTipoFornecimento(
-      trecho1.disjuntor,
+      trecho2.disjuntor,
       tensaoGeral,
       sistemaDistribuicao,
     );
@@ -143,7 +146,7 @@ export function CardVerificacaoRamal({
   return (
     <View style={styles.cardEntrada}>
       <Text style={styles.tituloSecao}>
-        Análise de Queda de Tensão nos Ramais
+        Dimensionamento do Alimentador ({tipoImovel})
       </Text>
       <Text style={styles.textoInstrucao}>
         Preencha as distâncias para avaliar se a queda de tensão exige cabos
@@ -177,16 +180,14 @@ export function CardVerificacaoRamal({
         <View style={styles.alertaBloqueioBotoes}>
           <Text style={styles.textoAlertaBloqueio}>
             ⚠️ Sistema travado em modo Trifásico. A carga instalada atual já
-            atingiu ou superou o limite regulamentar de 25.000 VA,
-            impossibilitando o uso de redes bifásicas ou monofásicas. Os botões
-            de modificação de reserva foram desativados.
+            atingiu ou superou o limite regulamentar de 25.000 VA.
           </Text>
         </View>
       )}
 
+      {/* 💡 BOTÃO RESTAURADO */}
       {potenciaOriginal > 0 && (
         <View style={styles.containerReservaAcao}>
-          {/* 💡 CORREÇÃO AQUI: Botão unificado que apenas muda de estado visualmente */}
           <TouchableOpacity
             style={[
               reservaAplicada
@@ -213,19 +214,26 @@ export function CardVerificacaoRamal({
         </View>
       )}
 
+      {/* 💡 ALINHAMENTO LADO A LADO RESTAURADO */}
       <View style={styles.row}>
-        <View style={styles.col}>
-          <Text style={styles.labelInput}>Rua → Medidor (m)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={distanciaExterna}
-            onChangeText={setDistanciaExterna}
-            placeholder="Ex: 15"
-          />
-        </View>
-        <View style={styles.col}>
-          <Text style={styles.labelInput}>Medidor → QDC (m)</Text>
+        {tipoImovel === "Casa" && (
+          <View style={styles.col}>
+            <Text style={styles.labelInput}>Rua → Medidor (m)</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="numeric"
+              value={distanciaExterna}
+              onChangeText={setDistanciaExterna}
+              placeholder="Ex: 15"
+            />
+          </View>
+        )}
+        <View style={tipoImovel === "Casa" ? styles.col : { width: "100%" }}>
+          <Text style={styles.labelInput}>
+            {tipoImovel === "Casa"
+              ? "Medidor → QDC (m)"
+              : "Medidor/Condomínio → QDC (m)"}
+          </Text>
           <TextInput
             style={styles.input}
             keyboardType="numeric"
@@ -240,7 +248,7 @@ export function CardVerificacaoRamal({
         style={styles.botaoCalcularRamal}
         onPress={handleCalcular}
       >
-        <Text style={styles.textoBotao}>Dimensionar Ramais</Text>
+        <Text style={styles.textoBotao}>Dimensionar Alimentação</Text>
       </TouchableOpacity>
 
       {resultadosLocal && (
@@ -272,15 +280,21 @@ export function CardVerificacaoRamal({
             </View>
           )}
 
+          {resultadosLocal.trecho1 && (
+            <View style={styles.linhaTrecho}>
+              <Text style={styles.lblTrecho}>
+                📍 Conexão da Rua ao Medidor:
+              </Text>
+              <Text style={styles.valTrecho}>
+                Cabo {resultadosLocal.trecho1.bitola} mm² | Disj:{" "}
+                {resultadosLocal.trecho1.disjuntor} A
+              </Text>
+            </View>
+          )}
           <View style={styles.linhaTrecho}>
-            <Text style={styles.lblTrecho}>📍 Conexão da Rua ao Medidor:</Text>
-            <Text style={styles.valTrecho}>
-              Cabo {resultadosLocal.trecho1.bitola} mm² | Disj:{" "}
-              {resultadosLocal.trecho1.disjuntor} A
+            <Text style={styles.lblTrecho}>
+              🏠 {tipoImovel === "Casa" ? "Medidor ao QDC" : "Medidor ao QDC"}:
             </Text>
-          </View>
-          <View style={styles.linhaTrecho}>
-            <Text style={styles.lblTrecho}>🏠 Entrada do Medidor ao QDC:</Text>
             <Text style={styles.valTrecho}>
               Cabo {resultadosLocal.trecho2.bitola} mm² | Disj:{" "}
               {resultadosLocal.trecho2.disjuntor} A

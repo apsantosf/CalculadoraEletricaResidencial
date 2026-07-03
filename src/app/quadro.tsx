@@ -19,7 +19,7 @@ import { gerarMemorialPDF } from "../utils/pdfGenerator";
 
 const aplicarDemandaTues = (
   tueWatts: number[],
-  concessionaria: string,
+  distribuidora: string,
 ): number => {
   if (tueWatts.length === 0) return 0;
   let fator = 1.0;
@@ -30,10 +30,10 @@ const aplicarDemandaTues = (
 };
 
 export default function TelaQuadro() {
-  const { comodos, tensaoGeral, concessionaria, removerComodo } = useData();
+  // 💡 Adicionamos o "tipoImovel" aqui para usá-lo nos relatórios
+  const { comodos, tensaoGeral, distribuidora, tipoImovel, removerComodo } =
+    useData();
   const [resultadosRamal, setResultadosRamal] = useState<any>(null);
-
-  // 💡 LIFTING DE ESTADO: O controle da Reserva agora fica no arquivo principal
   const [reservaAplicada, setReservaAplicada] = useState(false);
 
   const calcularPotenciasAtuais = () => {
@@ -41,7 +41,6 @@ export default function TelaQuadro() {
     let listaWattsTue: number[] = [];
     let totalBrutoOriginal = 0;
 
-    // Se a reserva estiver ativada, multiplicamos tudo por 1.3 (30%)
     const fatorMultiplicador = reservaAplicada ? 1.3 : 1.0;
 
     comodos.forEach((c) => {
@@ -49,7 +48,6 @@ export default function TelaQuadro() {
         const potOriginal = d.potencia * d.quantidade;
         totalBrutoOriginal += potOriginal;
 
-        // Aplica o fator de reserva em cada dispositivo
         const potComReserva = potOriginal * fatorMultiplicador;
 
         if (d.tipo === "iluminacao" || d.tipo === "tug")
@@ -87,7 +85,7 @@ export default function TelaQuadro() {
   const resultadoDemanda = projetoTemDados
     ? calcularAlimentadorGeral({
         potenciaIlumTugVA:
-          somaIlumTugVA + aplicarDemandaTues(listaWattsTue, concessionaria),
+          somaIlumTugVA + aplicarDemandaTues(listaWattsTue, distribuidora),
         potenciasTueWatts: [],
         tensao: tensaoGeral,
       })
@@ -97,16 +95,18 @@ export default function TelaQuadro() {
     await gerarMemorialPDF({
       comodos,
       tensaoGeral,
-      concessionaria,
+      concessionaria: distribuidora,
       resultadoQDC,
       resultadoDemanda,
       resultadosRamal,
+      tipoImovel, // 💡 Enviando a variável para o gerador de PDF
     });
   };
 
   const handleCompartilharRelatorio = async () => {
     let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
-    texto += `📐 Norma NBR 5410 e Distribuidora (${concessionaria})\n`;
+    texto += `🏠 Tipo de Imóvel: ${tipoImovel}\n`; // 💡 Adicionado no WhatsApp
+    texto += `📐 Norma NBR 5410 e Distribuidora (${distribuidora})\n`;
     texto += `🔌 Tensão do Sistema: ${tensaoGeral} V\n`;
     texto += `--------------------------------------\n\n`;
 
@@ -123,13 +123,17 @@ export default function TelaQuadro() {
       texto += `\n--------------------------------------\n\n`;
 
       texto += `💡 QDC INTERNO (INSTALADO):\nPotência: ${resultadoQDC?.potenciaTotalVA} VA\nCabo: ${resultadoQDC?.caboGeral} mm²\nDisjuntor: ${resultadoQDC?.disjuntorGeral} A\n`;
-      texto += `\n🏢 DEMANDA PADRÃO (${concessionaria}):\nDemanda: ${resultadoDemanda?.potenciaTotalVA} VA\nCabo: ${resultadoDemanda?.caboGeral} mm²\nDisjuntor: ${resultadoDemanda?.disjuntorGeral} A\n\n`;
+      texto += `\n🏢 DEMANDA PADRÃO (${distribuidora}):\nDemanda: ${resultadoDemanda?.potenciaTotalVA} VA\nCabo: ${resultadoDemanda?.caboGeral} mm²\nDisjuntor: ${resultadoDemanda?.disjuntorGeral} A\n\n`;
     }
 
     if (resultadosRamal) {
-      texto += `📏 VERIFICAÇÃO POR QUEDA DE TENSÃO (DISTÂNCIA):\nFornecimento: ${resultadosRamal.fornecimento}\n`;
-      texto += `Trecho 1 (Rua -> Medidor): Cabo ${resultadosRamal.trecho1.bitola} mm² | Disj: ${resultadosRamal.trecho1.disjuntor} A\n`;
-      texto += `Trecho 2 (Medidor -> QDC): Cabo ${resultadosRamal.trecho2.bitola} mm² | Disj: ${resultadosRamal.trecho2.disjuntor} A\n`;
+      texto += `📏 DIMENSIONAMENTO DO ALIMENTADOR:\nFornecimento: ${resultadosRamal.fornecimento}\n`;
+
+      if (resultadosRamal.trecho1) {
+        texto += `Trecho Externo (Rua -> Medidor): Cabo ${resultadosRamal.trecho1.bitola} mm² | Disj: ${resultadosRamal.trecho1.disjuntor} A\n`;
+      }
+
+      texto += `Trecho Interno (Medidor -> QDC): Cabo ${resultadosRamal.trecho2.bitola} mm² | Disj: ${resultadosRamal.trecho2.disjuntor} A\n`;
     }
 
     await Share.share({ message: texto });
@@ -159,7 +163,6 @@ export default function TelaQuadro() {
         style={styles.container}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
-        {/* 💡 O Card de Ramal agora recebe os controles de Reserva do pai */}
         <CardVerificacaoRamal
           potenciaTotal={totalBrutoAplicado}
           potenciaOriginal={totalBrutoOriginal}
@@ -198,7 +201,7 @@ export default function TelaQuadro() {
               <CardResumoQuadro
                 resultadoQDC={resultadoQDC}
                 resultadoDemanda={resultadoDemanda}
-                concessionaria={concessionaria}
+                concessionaria={distribuidora}
               />
             )}
           </View>

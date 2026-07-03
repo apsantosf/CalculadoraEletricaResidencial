@@ -10,6 +10,7 @@ interface PDFData {
   resultadoQDC: any;
   resultadoDemanda: any;
   resultadosRamal: any;
+  tipoImovel: string; // 💡 Adicionamos a propriedade na interface
 }
 
 export const gerarMemorialPDF = async (data: PDFData) => {
@@ -20,9 +21,9 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     resultadoQDC,
     resultadoDemanda,
     resultadosRamal,
+    tipoImovel, // 💡 Extraímos a variável
   } = data;
 
-  // 1. Construção dinâmica da tabela de circuitos/cómodos
   let linhasComodosHtml = "";
   comodos.forEach((c) => {
     c.dispositivos.forEach((d: any) => {
@@ -39,12 +40,21 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     });
   });
 
-  // 2. Construção opcional do bloco de verificação por queda de tensão
   let blocoRamalHtml = "";
   if (resultadosRamal) {
+    const linhaTrecho1 = resultadosRamal.trecho1
+      ? `
+            <tr>
+              <td>📍 Trecho Externo: Rede da Rua ao Medidor</td>
+              <td style="text-align: center;">${resultadosRamal.trecho1.bitola} mm²</td>
+              <td style="text-align: center;">${resultadosRamal.trecho1.disjuntor} A</td>
+            </tr>
+    `
+      : "";
+
     blocoRamalHtml = `
       <div class="card" style="border-left: 4px solid #0284c7;">
-        <h2 style="color: #0284c7; margin-top: 0;">📏 Dimensionamento do Ramal (Verificação por Distância)</h2>
+        <h2 style="color: #0284c7; margin-top: 0;">📏 Dimensionamento do Alimentador Principal</h2>
         <p><strong>Tipo de Fornecimento Recomendado:</strong> ${resultadosRamal.fornecimento}</p>
         <p><strong>Demanda Corrigida:</strong> ${resultadosRamal.potenciaDemanda} VA | <strong>Corrente:</strong> ${resultadosRamal.correnteDemanda} A</p>
         <table style="margin-top: 10px;">
@@ -56,13 +66,9 @@ export const gerarMemorialPDF = async (data: PDFData) => {
             </tr>
           </thead>
           <tbody>
+            ${linhaTrecho1}
             <tr>
-              <td>📍 Trecho 1: Rede da Rua ao Medidor</td>
-              <td style="text-align: center;">${resultadosRamal.trecho1.bitola} mm²</td>
-              <td style="text-align: center;">${resultadosRamal.trecho1.disjuntor} A</td>
-            </tr>
-            <tr>
-              <td>🏠 Trecho 2: Medidor ao Quadro Interno (QDC)</td>
+              <td>🏠 Trecho Interno: Medidor ao Quadro Interno (QDC)</td>
               <td style="text-align: center;">${resultadosRamal.trecho2.bitola} mm²</td>
               <td style="text-align: center;">${resultadosRamal.trecho2.disjuntor} A</td>
             </tr>
@@ -72,7 +78,6 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     `;
   }
 
-  // 3. Template HTML Completo
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -110,6 +115,10 @@ export const gerarMemorialPDF = async (data: PDFData) => {
       <div class="card">
         <h2>📋 Parâmetros Gerais do Projeto</h2>
         <div class="grid-info">
+          <div class="grid-row">
+            <div class="grid-cell label">Tipo de Imóvel:</div>
+            <div class="grid-cell value destaque-azul">${tipoImovel}</div> 
+          </div>
           <div class="grid-row">
             <div class="grid-cell label">Normativa de Referência de Base:</div>
             <div class="grid-cell value">NBR 5410:2004</div>
@@ -198,13 +207,10 @@ export const gerarMemorialPDF = async (data: PDFData) => {
 
   try {
     if (Platform.OS === "web") {
-      // 💡 CORREÇÃO WEB: Abre uma nova aba (protegendo o aplicativo principal)
       const novaAba = window.open("", "_blank");
       if (novaAba) {
         novaAba.document.write(htmlContent);
         novaAba.document.close();
-
-        // Aguarda um instante para renderizar o CSS e chama o diálogo de impressão
         setTimeout(() => {
           novaAba.print();
         }, 500);
@@ -214,14 +220,12 @@ export const gerarMemorialPDF = async (data: PDFData) => {
         );
       }
     } else {
-      // No Android/iOS, cria o ficheiro e abre o menu de partilha nativo
       const result = await Print.printToFileAsync({ html: htmlContent });
-
       if (result && result.uri) {
         await Sharing.shareAsync(result.uri, {
           mimeType: "application/pdf",
           dialogTitle: "Exportar Memorial Descritivo",
-          UTI: "com.adobe.pdf", // Ajuda o iOS a entender o tipo de ficheiro
+          UTI: "com.adobe.pdf",
         });
       }
     }

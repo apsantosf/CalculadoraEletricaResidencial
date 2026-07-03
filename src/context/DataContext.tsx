@@ -4,18 +4,21 @@ import { Comodo, Dispositivo } from "../utils/templates";
 
 // 1. O tipo exportado caso outras telas precisem saber as opções exatas
 export type TipoSistema = "127/220V" | "220/380V";
+export type TipoImovel = "Casa" | "Apartamento";
 
 interface DataContextType {
   tensaoGeral: 127 | 220;
   setTensaoGeral: (tensao: 127 | 220) => void;
 
-  // 💡 Nomes atualizados para "distribuidora"
   distribuidora: string;
   setDistribuidora: (dist: string) => void;
 
-  // 2. A variável e função do sistema de distribuição dentro da interface
   sistemaDistribuicao: TipoSistema;
   setSistemaDistribuicao: (sistema: TipoSistema) => void;
+
+  // 💡 NOVA VARIÁVEL: Casa ou Apartamento
+  tipoImovel: TipoImovel;
+  setTipoImovel: (tipo: TipoImovel) => void;
 
   comodos: Comodo[];
   adicionarComodo: (novoComodo: Comodo) => void;
@@ -39,13 +42,12 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [tensaoGeral, setTensaoGeral] = useState<127 | 220>(127);
-
-  // 💡 Estado atualizado para "distribuidora"
   const [distribuidora, setDistribuidora] = useState<string>("CPFL");
-
-  // 3. A variável de estado real
   const [sistemaDistribuicao, setSistemaDistribuicao] =
     useState<TipoSistema>("127/220V");
+
+  // 💡 Estado inicial definido como Casa
+  const [tipoImovel, setTipoImovel] = useState<TipoImovel>("Casa");
 
   const [comodos, setComodos] = useState<Comodo[]>([]);
   const [tokenReset, setTokenReset] = useState<number>(0);
@@ -118,10 +120,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       value={{
         tensaoGeral,
         setTensaoGeral,
-        distribuidora, // 💡 Exportando o nome correto
-        setDistribuidora, // 💡 Exportando a função correta
+        distribuidora,
+        setDistribuidora,
         sistemaDistribuicao,
         setSistemaDistribuicao,
+        tipoImovel, // 💡 Exportando o tipo de imóvel
+        setTipoImovel, // 💡 Exportando a função
         comodos,
         adicionarComodo,
         removerComodo,

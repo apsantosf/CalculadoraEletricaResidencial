@@ -17,10 +17,12 @@ export default function ScreenInicio() {
     setSistemaDistribuicao,
     distribuidora,
     setDistribuidora,
+    tipoImovel,
+    setTipoImovel,
     comodos,
   } = useData();
 
-  // 💡 VALIDAÇÃO DE SEGURANÇA: Identifica se o usuário já adicionou cômodos ou TUEs
+  // 💡 VALIDAÇÃO DE SEGURANÇA
   const temItensCadastrados = comodos && comodos.length > 0;
 
   return (
@@ -28,7 +30,6 @@ export default function ScreenInicio() {
       <CustomHeader title="Previsão de Carga" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* 💡 BANNER DE ALERTA DE SEGURANÇA */}
         {temItensCadastrados && (
           <View style={styles.alertaBloqueio}>
             <Text style={styles.tituloAlertaBloqueio}>
@@ -36,14 +37,67 @@ export default function ScreenInicio() {
             </Text>
             <Text style={styles.textoAlertaBloqueio}>
               Como já existem cômodos ou circuitos específicos cadastrados, a
-              alteração de tensão, rede e distribuidora foi bloqueada para
-              proteger os cálculos atuais. Para modificar estas opções, você
-              deve limpar o projeto clicando no "X" no topo da tela.
+              alteração dos parâmetros principais foi bloqueada para proteger os
+              cálculos atuais. Para modificar estas opções, limpe o projeto
+              clicando no "X" no topo da tela.
             </Text>
           </View>
         )}
 
-        {/* Bloco 1: Tensão de Trabalho Interna */}
+        {/* Bloco 1: Tipo de Imóvel */}
+        <View style={styles.cardConfig}>
+          <Text style={styles.labelSecao}>Tipo de Imóvel</Text>
+          <View style={styles.rowBotoes}>
+            <TouchableOpacity
+              style={[
+                styles.botaoOpcao,
+                tipoImovel === "Casa" && styles.botaoAtivo,
+                temItensCadastrados &&
+                  tipoImovel !== "Casa" &&
+                  styles.botaoDesativado,
+              ]}
+              onPress={() => setTipoImovel("Casa")}
+              disabled={temItensCadastrados}
+            >
+              <Text
+                style={[
+                  styles.textoBotao,
+                  tipoImovel === "Casa" && styles.textoAtivo,
+                  temItensCadastrados &&
+                    tipoImovel !== "Casa" &&
+                    styles.textoDesativado,
+                ]}
+              >
+                🏠 Casa
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.botaoOpcao,
+                tipoImovel === "Apartamento" && styles.botaoAtivo,
+                temItensCadastrados &&
+                  tipoImovel !== "Apartamento" &&
+                  styles.botaoDesativado,
+              ]}
+              onPress={() => setTipoImovel("Apartamento")}
+              disabled={temItensCadastrados}
+            >
+              <Text
+                style={[
+                  styles.textoBotao,
+                  tipoImovel === "Apartamento" && styles.textoAtivo,
+                  temItensCadastrados &&
+                    tipoImovel !== "Apartamento" &&
+                    styles.textoDesativado,
+                ]}
+              >
+                🏢 Apartamento
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Bloco 2: Tensão de Trabalho Interna */}
         <View style={styles.cardConfig}>
           <Text style={styles.labelSecao}>Tensão de Trabalho Interna</Text>
           <View style={styles.rowBotoes}>
@@ -96,7 +150,7 @@ export default function ScreenInicio() {
           </View>
         </View>
 
-        {/* Bloco 2: Sistema de Rede */}
+        {/* Bloco 3: Sistema de Rede */}
         <View style={styles.cardConfig}>
           <Text style={styles.labelSecao}>Sistema de Rede da Região</Text>
           <View style={styles.rowBotoes}>
@@ -149,7 +203,7 @@ export default function ScreenInicio() {
           </View>
         </View>
 
-        {/* Bloco 3: Distribuidora */}
+        {/* Bloco 4: Distribuidora */}
         <View style={styles.cardConfig}>
           <Text style={styles.labelSecao}>Distribuidora de Energia</Text>
           <View style={styles.rowGrid}>
@@ -188,7 +242,13 @@ export default function ScreenInicio() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f3f4f6" },
-  content: { padding: 16, maxWidth: 450, width: "100%", alignSelf: "center" },
+  content: {
+    padding: 16,
+    maxWidth: 450,
+    width: "100%",
+    alignSelf: "center",
+    paddingBottom: 100,
+  },
   cardConfig: {
     backgroundColor: "#fff",
     padding: 16,
@@ -233,7 +293,6 @@ const styles = StyleSheet.create({
   textoBotao: { fontSize: 13, fontWeight: "600", color: "#4b5563" },
   textoAtivo: { color: "#fff" },
 
-  // 💡 ESTILOS DO BANNER DE TRAVAMENTO EXTERNO
   alertaBloqueio: {
     backgroundColor: "#fff1f2",
     borderWidth: 1,
