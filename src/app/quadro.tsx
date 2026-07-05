@@ -29,8 +29,30 @@ const aplicarDemandaTues = (
   return tueWatts.reduce((acc, curr) => acc + curr, 0) * fator;
 };
 
+// 💡 FUNÇÃO AUXILIAR PARA FORMATAR A LISTA NO QUADRO E NO ZAP
+const obterDimensionamentoCircuito = (
+  tipo: string,
+  potenciaTotal: number,
+  tensao: number,
+) => {
+  const corrente = potenciaTotal / tensao;
+  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
+  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
+
+  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
+  let disj = disjuntores.find((d) => d >= corrente) || 100;
+  let cabo = "2.5";
+  if (disj > 20 && disj <= 25) cabo = "4";
+  else if (disj > 25 && disj <= 32) cabo = "6";
+  else if (disj > 32 && disj <= 40) cabo = "10";
+  else if (disj > 40 && disj <= 50) cabo = "10";
+  else if (disj > 50 && disj <= 63) cabo = "16";
+  else if (disj > 63) cabo = "25";
+
+  return { cabo, disj };
+};
+
 export default function TelaQuadro() {
-  // 💡 Adicionamos o "tipoImovel" aqui para usá-lo nos relatórios
   const { comodos, tensaoGeral, distribuidora, tipoImovel, removerComodo } =
     useData();
   const [resultadosRamal, setResultadosRamal] = useState<any>(null);
@@ -99,13 +121,13 @@ export default function TelaQuadro() {
       resultadoQDC,
       resultadoDemanda,
       resultadosRamal,
-      tipoImovel, // 💡 Enviando a variável para o gerador de PDF
+      tipoImovel,
     });
   };
 
   const handleCompartilharRelatorio = async () => {
     let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
-    texto += `🏠 Tipo de Imóvel: ${tipoImovel}\n`; // 💡 Adicionado no WhatsApp
+    texto += `🏠 Tipo de Imóvel: ${tipoImovel}\n`;
     texto += `📐 Norma NBR 5410 e Distribuidora (${distribuidora})\n`;
     texto += `🔌 Tensão do Sistema: ${tensaoGeral} V\n`;
     texto += `--------------------------------------\n\n`;
@@ -117,7 +139,13 @@ export default function TelaQuadro() {
         c.dispositivos.forEach((d) => {
           const potTotal = d.potencia * d.quantidade;
           const unidade = d.tipo === "tue" ? "W" : "VA";
-          texto += `  - ${d.quantidade}x ${d.nome} (${potTotal} ${unidade})\n`;
+          const dim = obterDimensionamentoCircuito(
+            d.tipo,
+            potTotal,
+            tensaoGeral,
+          );
+          // 💡 Atualizado no WhatsApp para mostrar o Fio e Disjuntor
+          texto += `  - ${d.quantidade}x ${d.nome} (${potTotal} ${unidade}) | Fio: ${dim.cabo}mm² | Disj: ${dim.disj}A\n`;
         });
       });
       texto += `\n--------------------------------------\n\n`;
@@ -180,12 +208,33 @@ export default function TelaQuadro() {
                 <View key={c.id} style={styles.itemCircuito}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nomeCircuito}>{c.nome}</Text>
-                    {c.dispositivos.map((d, index) => (
-                      <Text key={index} style={styles.textoDetalhe}>
-                        ↳ {d.quantidade}x {d.nome} ({d.potencia * d.quantidade}{" "}
-                        {d.tipo === "tue" ? "W" : "VA"})
-                      </Text>
-                    ))}
+                    {c.dispositivos.map((d, index) => {
+                      const potTotal = d.potencia * d.quantidade;
+                      const dim = obterDimensionamentoCircuito(
+                        d.tipo,
+                        potTotal,
+                        tensaoGeral,
+                      );
+                      return (
+                        // 💡 Atualizado na tela para mostrar o Fio e Disjuntor
+                        <Text key={index} style={styles.textoDetalhe}>
+                          ↳ {d.quantidade}x {d.nome} ({potTotal}{" "}
+                          {d.tipo === "tue" ? "W" : "VA"})
+                          <Text
+                            style={{ color: "#059669", fontWeight: "bold" }}
+                          >
+                            {" "}
+                            | Fio {dim.cabo}mm²
+                          </Text>
+                          <Text
+                            style={{ color: "#dc2626", fontWeight: "bold" }}
+                          >
+                            {" "}
+                            - Disj. {dim.disj}A
+                          </Text>
+                        </Text>
+                      );
+                    })}
                   </View>
                   <TouchableOpacity
                     style={styles.deleteButton}
@@ -275,7 +324,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 4,
   },
-  textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 4 },
   botoesAcaoContainer: { marginTop: 10 },
   botaoExportar: {
     backgroundColor: "#10b981",

@@ -13,12 +13,34 @@ import FormTue from "../components/ui/FormTue";
 import { useData } from "../context/DataContext";
 import { dimensionarTUE } from "../utils/calculations";
 
+// 💡 MESMA FUNÇÃO AUXILIAR APLICADA AQUI
+const obterDimensionamentoCircuito = (
+  tipo: string,
+  potenciaTotal: number,
+  tensao: number,
+) => {
+  const corrente = potenciaTotal / tensao;
+  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
+  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
+
+  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
+  let disj = disjuntores.find((d) => d >= corrente) || 100;
+  let cabo = "2.5";
+  if (disj > 20 && disj <= 25) cabo = "4";
+  else if (disj > 25 && disj <= 32) cabo = "6";
+  else if (disj > 32 && disj <= 40) cabo = "10";
+  else if (disj > 40 && disj <= 50) cabo = "10";
+  else if (disj > 50 && disj <= 63) cabo = "16";
+  else if (disj > 63) cabo = "25";
+
+  return { cabo, disj };
+};
+
 export default function TelaTues() {
   const { adicionarComodo, removerComodo, tokenReset, comodos, tensaoGeral } =
     useData();
   const [resultadoTue, setResultadoTue] = useState<any>(null);
 
-  // Filtra os TUEs já adicionados ao quadro varrendo todos os cômodos e dispositivos
   const tuesCadastrados = comodos
     ? comodos.flatMap((c) => c.dispositivos).filter((d) => d.tipo === "tue")
     : [];
@@ -42,7 +64,6 @@ export default function TelaTues() {
   const handleAdicionarTue = () => {
     if (!resultadoTue) return;
 
-    // Cria um "cômodo" exclusivo para comportar esse circuito dedicado
     adicionarComodo({
       id: Math.random().toString(),
       nome: `Circuito Dedicado: ${resultadoTue.nome}`,
@@ -62,10 +83,8 @@ export default function TelaTues() {
     setResultadoTue(null);
   };
 
-  // VERIFICAÇÃO DE BLOQUEIO: Se a tensão geral não foi selecionada
   const tensaoNaoDefinida = tensaoGeral !== 127 && tensaoGeral !== 220;
 
-  // 💡 LÓGICA DE ORDENAÇÃO ALFABÉTICA: Filtra e ordena apenas os circuitos de TUEs
   const tuesOrdenados = comodos
     ? [...comodos]
         .filter((c) => c.dispositivos.some((d) => d.tipo === "tue"))
@@ -130,7 +149,6 @@ export default function TelaTues() {
               </View>
             )}
 
-            {/* 💡 NOVA SEÇÃO: Relação de Cômodos e TUEs idêntica à de Cômodos */}
             <Text style={styles.tituloLista}>📋 Relação de Cômodos e TUEs</Text>
             {tuesOrdenados.length === 0 && (
               <Text
@@ -148,12 +166,29 @@ export default function TelaTues() {
                     <Text style={styles.botaoRemover}>❌</Text>
                   </TouchableOpacity>
                 </View>
-                {comodo.dispositivos.map((disp: any) => (
-                  <Text key={disp.id} style={styles.textoDispositivo}>
-                    ↳ {disp.quantidade}x {disp.nome} (
-                    {disp.potencia * disp.quantidade} {disp.unidade})
-                  </Text>
-                ))}
+                {comodo.dispositivos.map((disp: any) => {
+                  const potTotal = disp.potencia * disp.quantidade;
+                  const dim = obterDimensionamentoCircuito(
+                    disp.tipo,
+                    potTotal,
+                    tensaoGeral,
+                  );
+                  return (
+                    // 💡 APLICADA A FORMATAÇÃO DE CABOS AQUI
+                    <Text key={disp.id} style={styles.textoDispositivo}>
+                      ↳ {disp.quantidade}x {disp.nome} ({potTotal}{" "}
+                      {disp.unidade})
+                      <Text style={{ color: "#059669", fontWeight: "bold" }}>
+                        {" "}
+                        | Fio {dim.cabo}mm²
+                      </Text>
+                      <Text style={{ color: "#dc2626", fontWeight: "bold" }}>
+                        {" "}
+                        - Disj. {dim.disj}A
+                      </Text>
+                    </Text>
+                  );
+                })}
               </View>
             ))}
           </>
@@ -203,8 +238,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-
-  // 💡 ESTILOS NOVOS ADICIONADOS PARA PADRONIZAÇÃO IGUAL À DE CÔMODOS
   tituloLista: {
     fontSize: 16,
     fontWeight: "bold",
@@ -235,6 +268,6 @@ const styles = StyleSheet.create({
   textoDispositivo: {
     fontSize: 13,
     color: "#6b7280",
-    marginTop: 2,
+    marginTop: 4,
   },
 });

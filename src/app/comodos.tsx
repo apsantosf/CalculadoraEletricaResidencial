@@ -34,8 +34,32 @@ const TEMPLATES_COMODOS: Record<string, string> = {
   Corredor: "corredor",
 };
 
+// 💡 FUNÇÃO AUXILIAR: Calcula o fio e disjuntor de cada circuito na hora
+const obterDimensionamentoCircuito = (
+  tipo: string,
+  potenciaTotal: number,
+  tensao: number,
+) => {
+  const corrente = potenciaTotal / tensao;
+  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
+  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
+
+  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
+  let disj = disjuntores.find((d) => d >= corrente) || 100;
+  let cabo = "2.5";
+  if (disj > 20 && disj <= 25) cabo = "4";
+  else if (disj > 25 && disj <= 32) cabo = "6";
+  else if (disj > 32 && disj <= 40) cabo = "10";
+  else if (disj > 40 && disj <= 50) cabo = "10";
+  else if (disj > 50 && disj <= 63) cabo = "16";
+  else if (disj > 63) cabo = "25";
+
+  return { cabo, disj };
+};
+
 export default function ScreenComodos() {
-  const { comodos, adicionarComodo, removerComodo } = useData();
+  // 💡 Adicionado "tensaoGeral" aqui para o cálculo
+  const { comodos, adicionarComodo, removerComodo, tensaoGeral } = useData();
 
   const [tipoAmbiente, setTipoAmbiente] = useState("Sala de Estar");
   const [nomeLivre, setNomeLivre] = useState("Sala de Estar");
@@ -120,7 +144,6 @@ export default function ScreenComodos() {
     setResultadoPrevio(dispositivos);
   };
 
-  // 💡 CORRIGIDO: Nome da função ajustado para executarAdicao (com 'x')
   const executarAdicao = () => {
     if (!area || !perimetro) {
       const msg = "Preencha a Área e o Perímetro antes de adicionar.";
@@ -239,12 +262,28 @@ export default function ScreenComodos() {
           {resultadoPrevio && (
             <View style={styles.resultadoBox}>
               <Text style={styles.tituloResultado}>⚡ Previsão de Carga:</Text>
-              {resultadoPrevio.map((disp: any) => (
-                <Text key={disp.id} style={styles.textoResultado}>
-                  ↳ {disp.quantidade}x {disp.nome} (
-                  {disp.potencia * disp.quantidade} {disp.unidade})
-                </Text>
-              ))}
+              {resultadoPrevio.map((disp: any) => {
+                const potTotal = disp.potencia * disp.quantidade;
+                const dim = obterDimensionamentoCircuito(
+                  disp.tipo,
+                  potTotal,
+                  tensaoGeral,
+                );
+                return (
+                  // 💡 APLICADA A FORMATAÇÃO DE CABOS AQUI
+                  <Text key={disp.id} style={styles.textoResultado}>
+                    ↳ {disp.quantidade}x {disp.nome} ({potTotal} {disp.unidade})
+                    <Text style={{ color: "#059669", fontWeight: "bold" }}>
+                      {" "}
+                      | Fio {dim.cabo}mm²
+                    </Text>
+                    <Text style={{ color: "#dc2626", fontWeight: "bold" }}>
+                      {" "}
+                      - Disj. {dim.disj}A
+                    </Text>
+                  </Text>
+                );
+              })}
             </View>
           )}
 
@@ -285,12 +324,28 @@ export default function ScreenComodos() {
                 <Text style={styles.botaoRemover}>❌</Text>
               </TouchableOpacity>
             </View>
-            {comodo.dispositivos.map((disp: any) => (
-              <Text key={disp.id} style={styles.textoDispositivo}>
-                ↳ {disp.quantidade}x {disp.nome} (
-                {disp.potencia * disp.quantidade} {disp.unidade})
-              </Text>
-            ))}
+            {comodo.dispositivos.map((disp: any) => {
+              const potTotal = disp.potencia * disp.quantidade;
+              const dim = obterDimensionamentoCircuito(
+                disp.tipo,
+                potTotal,
+                tensaoGeral,
+              );
+              return (
+                // 💡 APLICADA A FORMATAÇÃO DE CABOS NA LISTA SALVA
+                <Text key={disp.id} style={styles.textoDispositivo}>
+                  ↳ {disp.quantidade}x {disp.nome} ({potTotal} {disp.unidade})
+                  <Text style={{ color: "#059669", fontWeight: "bold" }}>
+                    {" "}
+                    | Fio {dim.cabo}mm²
+                  </Text>
+                  <Text style={{ color: "#dc2626", fontWeight: "bold" }}>
+                    {" "}
+                    - Disj. {dim.disj}A
+                  </Text>
+                </Text>
+              );
+            })}
           </View>
         ))}
       </ScrollView>
@@ -313,7 +368,6 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 20,
   },
-
   labelInput: {
     fontSize: 13,
     fontWeight: "600",
@@ -329,7 +383,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 15,
   },
-
   pickerContainer: {
     backgroundColor: "#fdfbea",
     borderWidth: 1,
@@ -339,7 +392,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   picker: { height: 50, width: "100%", color: "#374151" },
-
   headerDica: {
     flexDirection: "row",
     alignItems: "center",
@@ -355,10 +407,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   textoDica: { fontSize: 10, color: "#1e40af", fontWeight: "bold" },
-
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
-
   resultadoBox: {
     backgroundColor: "#eff6ff",
     padding: 12,
@@ -373,8 +423,7 @@ const styles = StyleSheet.create({
     color: "#1d4ed8",
     marginBottom: 4,
   },
-  textoResultado: { fontSize: 12, color: "#1e40af", marginTop: 2 },
-
+  textoResultado: { fontSize: 12, color: "#1e40af", marginTop: 4 },
   rowBotoes: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -400,7 +449,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#059669",
   },
   textoBotaoBranco: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-
   tituloLista: {
     fontSize: 16,
     fontWeight: "bold",
@@ -423,5 +471,5 @@ const styles = StyleSheet.create({
   },
   nomeComodo: { fontSize: 15, fontWeight: "bold", color: "#374151" },
   botaoRemover: { fontSize: 14 },
-  textoDispositivo: { fontSize: 13, color: "#6b7280", marginTop: 2 },
+  textoDispositivo: { fontSize: 13, color: "#6b7280", marginTop: 4 },
 });

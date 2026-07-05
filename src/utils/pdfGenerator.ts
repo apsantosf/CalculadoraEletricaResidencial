@@ -10,8 +10,31 @@ interface PDFData {
   resultadoQDC: any;
   resultadoDemanda: any;
   resultadosRamal: any;
-  tipoImovel: string; // 💡 Adicionamos a propriedade na interface
+  tipoImovel: string;
 }
+
+// 💡 Função auxiliar para o PDF
+const obterDimensionamentoCircuito = (
+  tipo: string,
+  potenciaTotal: number,
+  tensao: number,
+) => {
+  const corrente = potenciaTotal / tensao;
+  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
+  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
+
+  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
+  let disj = disjuntores.find((d) => d >= corrente) || 100;
+  let cabo = "2.5";
+  if (disj > 20 && disj <= 25) cabo = "4";
+  else if (disj > 25 && disj <= 32) cabo = "6";
+  else if (disj > 32 && disj <= 40) cabo = "10";
+  else if (disj > 40 && disj <= 50) cabo = "10";
+  else if (disj > 50 && disj <= 63) cabo = "16";
+  else if (disj > 63) cabo = "25";
+
+  return { cabo, disj };
+};
 
 export const gerarMemorialPDF = async (data: PDFData) => {
   const {
@@ -21,7 +44,7 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     resultadoQDC,
     resultadoDemanda,
     resultadosRamal,
-    tipoImovel, // 💡 Extraímos a variável
+    tipoImovel,
   } = data;
 
   let linhasComodosHtml = "";
@@ -29,12 +52,17 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     c.dispositivos.forEach((d: any) => {
       const potTotal = d.potencia * d.quantidade;
       const unidade = d.tipo === "tue" ? "W" : "VA";
+      const dim = obterDimensionamentoCircuito(d.tipo, potTotal, tensaoGeral);
+
+      // 💡 Adicionadas as colunas de Fio e Disjuntor na Tabela
       linhasComodosHtml += `
         <tr>
           <td><strong>${c.nome}</strong></td>
           <td>${d.nome}</td>
           <td style="text-align: center;">${d.quantidade}</td>
           <td style="text-align: right;">${potTotal} ${unidade}</td>
+          <td style="text-align: center; color: #059669; font-weight: bold;">${dim.cabo} mm²</td>
+          <td style="text-align: center; color: #dc2626; font-weight: bold;">${dim.disj} A</td>
         </tr>
       `;
     });
@@ -189,6 +217,9 @@ export const gerarMemorialPDF = async (data: PDFData) => {
               <th>Circuito / Equipamento</th>
               <th style="text-align: center;">Qtd</th>
               <th style="text-align: right;">Potência Acumulada</th>
+              <!-- 💡 Novas colunas na tabela -->
+              <th style="text-align: center;">Cabo Ideal</th>
+              <th style="text-align: center;">Disjuntor</th>
             </tr>
           </thead>
           <tbody>
