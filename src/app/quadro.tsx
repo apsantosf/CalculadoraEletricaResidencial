@@ -17,19 +17,20 @@ import { useData } from "../context/DataContext";
 import { calcularAlimentadorGeral } from "../utils/calculations";
 import { gerarMemorialPDF } from "../utils/pdfGenerator";
 
-const aplicarDemandaTues = (
+// 💡 CORREÇÃO: Nova função que mantém os TUEs separados e aplica o desconto em cada um individualmente
+const aplicarDemandaTuesLista = (
   tueWatts: number[],
   distribuidora: string,
-): number => {
-  if (tueWatts.length === 0) return 0;
+): number[] => {
+  if (tueWatts.length === 0) return [];
   let fator = 1.0;
   if (tueWatts.length === 2) fator = 0.9;
   else if (tueWatts.length >= 3 && tueWatts.length <= 5) fator = 0.8;
   else if (tueWatts.length >= 6) fator = 0.7;
-  return tueWatts.reduce((acc, curr) => acc + curr, 0) * fator;
+
+  return tueWatts.map((pot) => pot * fator);
 };
 
-// 💡 FUNÇÃO AUXILIAR PARA FORMATAR A LISTA NO QUADRO E NO ZAP
 const obterDimensionamentoCircuito = (
   tipo: string,
   potenciaTotal: number,
@@ -104,14 +105,19 @@ export default function TelaQuadro() {
       })
     : null;
 
-  const resultadoDemanda = projetoTemDados
-    ? calcularAlimentadorGeral({
-        potenciaIlumTugVA:
-          somaIlumTugVA + aplicarDemandaTues(listaWattsTue, distribuidora),
-        potenciasTueWatts: [],
-        tensao: tensaoGeral,
-      })
-    : null;
+  // 💡 CORREÇÃO DA DEMANDA: Entregamos a lista de TUEs com desconto ao motor, sem misturar com as TUGs
+  const resultadoDemanda =
+    projetoTemDados && resultadoQDC
+      ? calcularAlimentadorGeral({
+          potenciaIlumTugVA: somaIlumTugVA,
+          potenciasTueWatts: aplicarDemandaTuesLista(
+            listaWattsTue,
+            distribuidora,
+          ),
+          tensao: tensaoGeral,
+          forcarTrifasico: resultadoQDC.ehTrifasico, // 💡 O truque está aqui! Sincroniza as fases.
+        })
+      : null;
 
   const handleGerarPDF = async () => {
     await gerarMemorialPDF({
@@ -144,7 +150,6 @@ export default function TelaQuadro() {
             potTotal,
             tensaoGeral,
           );
-          // 💡 Atualizado no WhatsApp para mostrar o Fio e Disjuntor
           texto += `  - ${d.quantidade}x ${d.nome} (${potTotal} ${unidade}) | Fio: ${dim.cabo}mm² | Disj: ${dim.disj}A\n`;
         });
       });
@@ -216,7 +221,6 @@ export default function TelaQuadro() {
                         tensaoGeral,
                       );
                       return (
-                        // 💡 Atualizado na tela para mostrar o Fio e Disjuntor
                         <Text key={index} style={styles.textoDetalhe}>
                           ↳ {d.quantidade}x {d.nome} ({potTotal}{" "}
                           {d.tipo === "tue" ? "W" : "VA"})

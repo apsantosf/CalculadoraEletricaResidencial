@@ -21,7 +21,7 @@ export function CardResumoQuadro({
 }: CardResumoQuadroProps) {
   return (
     <View style={styles.container}>
-      {/* CARTÃO VERDE: QDC (CORRIGIDO PARA ESPELHAR A DEMANDA NA PROTEÇÃO) */}
+      {/* CARTÃO VERDE: QDC */}
       <View style={styles.cardRelatorio}>
         <Text style={styles.tituloRelatorio}>
           💡 QDC - INSTALADO (INTERNO):
@@ -37,17 +37,15 @@ export function CardResumoQuadro({
           <Text style={styles.valorBranco}>{resultadoQDC.correnteGeral} A</Text>
         </View>
 
-        {/* 🐛 CORREÇÃO DE SELETIVIDADE: O cabo e disjuntor agora puxam da Demanda */}
+        {/* 💡 CORRIGIDO: Retornamos as variáveis do QDC para mostrar os valores exatos calculados */}
         <View style={styles.linhaResumo}>
           <Text style={styles.labelBranco}>Cabo Alimentador Interno:</Text>
-          <Text style={styles.valorAmarelo}>
-            {resultadoDemanda.caboGeral} mm²
-          </Text>
+          <Text style={styles.valorAmarelo}>{resultadoQDC.caboGeral} mm²</Text>
         </View>
         <View style={styles.linhaResumo}>
           <Text style={styles.labelBranco}>Disjuntor Geral (QDC):</Text>
           <Text style={styles.valorAmarelo}>
-            {resultadoDemanda.disjuntorGeral} A
+            {resultadoQDC.disjuntorGeral} A
           </Text>
         </View>
       </View>

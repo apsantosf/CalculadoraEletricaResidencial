@@ -38,25 +38,23 @@ export const encontrarDisjuntorComercial = (
   correnteDemanda: number,
   capacidadeCabo: number,
 ): number => {
-  // 🐛 CORREÇÃO 1: Adicionados disjuntores maiores para suportar os cálculos de alta demanda
   const disjuntoresComerciais = [
     10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125, 150, 175, 200, 225, 250,
   ];
 
+  // 💡 Garante a regra In <= Iz (Disjuntor menor ou igual à capacidade do cabo)
   const adequados = disjuntoresComerciais.filter(
     (d) => d >= correnteDemanda && d <= capacidadeCabo,
   );
 
   if (adequados.length > 0) return adequados[0];
 
-  // Se não encontrar, retorna o maior possível em vez de travar no 125
   return (
     disjuntoresComerciais.find((d) => d >= correnteDemanda) ||
     disjuntoresComerciais[disjuntoresComerciais.length - 1]
   );
 };
 
-// A MÁGICA ESTÁ AQUI: Leva em conta a tensão e a região!
 export const determinarTipoFornecimento = (
   disjuntorGeral: number,
   tensaoSelecionada: number,
@@ -79,7 +77,6 @@ export const determinarTipoFornecimento = (
       return "Bifásico (2 Polos)";
     return "Trifásico (3 Polos)";
   }
-
   return "Indefinido";
 };
 
@@ -121,7 +118,7 @@ export const processarTrechoRamal = (
   corrente: number,
   tensao: number,
   caboMinimo: number,
-  sistemaDistribuicao: string, // <--- Passamos o sistema para cá
+  sistemaDistribuicao: string,
 ) => {
   if (distancia <= 0 || corrente <= 0)
     return { bitola: caboMinimo, disjuntor: 0, classificacao: "N/A" };
@@ -221,38 +218,45 @@ export const calcularAlimentadorGeral = (dados: {
   potenciaIlumTugVA: number;
   potenciasTueWatts: number[];
   tensao: number;
+  forcarTrifasico?: boolean; // 💡 Adicionado para alinhar QDC e Demanda
 }) => {
   const somaTues = dados.potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
   const potenciaTotalVA = dados.potenciaIlumTugVA + somaTues;
 
-  // 🐛 CORREÇÃO 2: A Mágica do Trifásico
   let correnteGeral = 0;
+  // 💡 A mágica: se o QDC principal for trifásico, a demanda também tem que ser!
+  const ehTrifasico = dados.forcarTrifasico || potenciaTotalVA > 25000;
 
-  if (potenciaTotalVA > 25000) {
-    // Ultrapassou 25kW? A CPFL obriga a ser Trifásico.
-    // Fórmula: Corrente = Potência / (Tensão de Linha * Raiz de 3)
+  if (ehTrifasico) {
     const tensaoLinha = dados.tensao === 127 ? 220 : dados.tensao;
     correnteGeral = potenciaTotalVA / (tensaoLinha * Math.sqrt(3));
   } else {
-    // Casas normais (Monofásico/Bifásico)
     correnteGeral = potenciaTotalVA / dados.tensao;
   }
 
-  // 🐛 CORREÇÃO 3: Fallback Seguro. Se exceder a tabela, sugere o cabo mais grosso (120mm) e não o de 6mm.
-  const caboIdeal =
-    tabelaCondutores.find(
-      (c) => c.capacidadeCorrente >= correnteGeral && c.bitola >= 6.0,
-    ) || tabelaCondutores[tabelaCondutores.length - 1];
+  // 💡 Garantia de Coordenação (Ib <= In <= Iz)
+  let caboIdeal = tabelaCondutores[tabelaCondutores.length - 1];
+  let disjuntorGeral = 250;
 
-  const disjuntorGeral = encontrarDisjuntorComercial(
-    correnteGeral,
-    caboIdeal.capacidadeCorrente,
-  );
+  for (const c of tabelaCondutores) {
+    if (c.bitola >= 6.0 && c.capacidadeCorrente >= correnteGeral) {
+      const disj = encontrarDisjuntorComercial(
+        correnteGeral,
+        c.capacidadeCorrente,
+      );
+      if (disj >= correnteGeral && disj <= c.capacidadeCorrente) {
+        caboIdeal = c;
+        disjuntorGeral = disj;
+        break; // Encontramos o par perfeito!
+      }
+    }
+  }
 
   return {
     potenciaTotalVA: Math.round(potenciaTotalVA),
     correnteGeral: Number(correnteGeral.toFixed(1)),
     caboGeral: caboIdeal.bitola,
     disjuntorGeral,
+    ehTrifasico, // 💡 Passamos adiante para a próxima função saber
   };
 };
