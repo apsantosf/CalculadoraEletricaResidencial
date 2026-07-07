@@ -1,4 +1,5 @@
 // src/app/index.tsx
+import { useEffect } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
 } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
+import { checarAtualizacao } from "../utils/UpdateHelper"; // <--- Importação limpa
 
 export default function ScreenInicio() {
   const {
@@ -20,6 +22,11 @@ export default function ScreenInicio() {
     tipoImovel,
     setTipoImovel,
   } = useData();
+
+  // Chama a função ao abrir a tela. O Expo decide qual arquivo usar!
+  useEffect(() => {
+    checarAtualizacao();
+  }, []);
 
   return (
     <View style={styles.container}>
