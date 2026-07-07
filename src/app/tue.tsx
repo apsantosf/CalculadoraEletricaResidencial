@@ -1,6 +1,8 @@
 // src/app/tue.tsx
 import { useEffect, useState } from "react";
 import {
+  Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +15,6 @@ import FormTue from "../components/ui/FormTue";
 import { useData } from "../context/DataContext";
 import { dimensionarTUE } from "../utils/calculations";
 
-// 💡 MESMA FUNÇÃO AUXILIAR APLICADA AQUI
 const obterDimensionamentoCircuito = (
   tipo: string,
   potenciaTotal: number,
@@ -81,6 +82,23 @@ export default function TelaTues() {
       ],
     });
     setResultadoTue(null);
+  };
+
+  // 💡 FUNÇÃO DE ALERTA ANTES DE DELETAR O TUE
+  const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
+        removerComodo(comodoId);
+    } else {
+      Alert.alert("Excluir", `Tem certeza que vai excluir "${nomeComodo}"?`, [
+        { text: "Não", style: "cancel" },
+        {
+          text: "Sim",
+          style: "destructive",
+          onPress: () => removerComodo(comodoId),
+        },
+      ]);
+    }
   };
 
   const tensaoNaoDefinida = tensaoGeral !== 127 && tensaoGeral !== 220;
@@ -162,7 +180,12 @@ export default function TelaTues() {
               <View key={comodo.id} style={styles.cardComodoItem}>
                 <View style={styles.headerComodo}>
                   <Text style={styles.nomeComodo}>{comodo.nome}</Text>
-                  <TouchableOpacity onPress={() => removerComodo(comodo.id)}>
+                  {/* 💡 TROCADA A CHAMADA DIRETA PARA O ALERTA */}
+                  <TouchableOpacity
+                    onPress={() =>
+                      handleRemoverComodoAlerta(comodo.id, comodo.nome)
+                    }
+                  >
                     <Text style={styles.botaoRemover}>❌</Text>
                   </TouchableOpacity>
                 </View>
@@ -174,7 +197,6 @@ export default function TelaTues() {
                     tensaoGeral,
                   );
                   return (
-                    // 💡 APLICADA A FORMATAÇÃO DE CABOS AQUI
                     <Text key={disp.id} style={styles.textoDispositivo}>
                       ↳ {disp.quantidade}x {disp.nome} ({potTotal}{" "}
                       {disp.unidade})
@@ -263,8 +285,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "bold",
     color: "#374151",
+    flexShrink: 1,
   },
-  botaoRemover: { fontSize: 14 },
+  botaoRemover: { fontSize: 14, paddingLeft: 10, paddingVertical: 5 },
   textoDispositivo: {
     fontSize: 13,
     color: "#6b7280",

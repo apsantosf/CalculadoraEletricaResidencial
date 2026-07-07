@@ -58,7 +58,6 @@ const obterDimensionamentoCircuito = (
 };
 
 export default function ScreenComodos() {
-  // 💡 Adicionado "tensaoGeral" aqui para o cálculo
   const { comodos, adicionarComodo, removerComodo, tensaoGeral } = useData();
 
   const [tipoAmbiente, setTipoAmbiente] = useState("Sala de Estar");
@@ -166,6 +165,23 @@ export default function ScreenComodos() {
     setResultadoPrevio(null);
   };
 
+  // 💡 FUNÇÃO DE ALERTA ANTES DE DELETAR O CÔMODO
+  const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
+        removerComodo(comodoId);
+    } else {
+      Alert.alert("Excluir", `Tem certeza que vai excluir "${nomeComodo}"?`, [
+        { text: "Não", style: "cancel" },
+        {
+          text: "Sim",
+          style: "destructive",
+          onPress: () => removerComodo(comodoId),
+        },
+      ]);
+    }
+  };
+
   const comodosReais = comodos.filter(
     (c) => !c.nome.startsWith("Circuito Dedicado:"),
   );
@@ -270,7 +286,6 @@ export default function ScreenComodos() {
                   tensaoGeral,
                 );
                 return (
-                  // 💡 APLICADA A FORMATAÇÃO DE CABOS AQUI
                   <Text key={disp.id} style={styles.textoResultado}>
                     ↳ {disp.quantidade}x {disp.nome} ({potTotal} {disp.unidade})
                     <Text style={{ color: "#059669", fontWeight: "bold" }}>
@@ -320,7 +335,12 @@ export default function ScreenComodos() {
           <View key={comodo.id} style={styles.cardComodoItem}>
             <View style={styles.headerComodo}>
               <Text style={styles.nomeComodo}>{comodo.nome}</Text>
-              <TouchableOpacity onPress={() => removerComodo(comodo.id)}>
+              {/* 💡 TROCADA A CHAMADA DIRETA PARA O ALERTA */}
+              <TouchableOpacity
+                onPress={() =>
+                  handleRemoverComodoAlerta(comodo.id, comodo.nome)
+                }
+              >
                 <Text style={styles.botaoRemover}>❌</Text>
               </TouchableOpacity>
             </View>
@@ -332,7 +352,6 @@ export default function ScreenComodos() {
                 tensaoGeral,
               );
               return (
-                // 💡 APLICADA A FORMATAÇÃO DE CABOS NA LISTA SALVA
                 <Text key={disp.id} style={styles.textoDispositivo}>
                   ↳ {disp.quantidade}x {disp.nome} ({potTotal} {disp.unidade})
                   <Text style={{ color: "#059669", fontWeight: "bold" }}>
@@ -470,6 +489,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nomeComodo: { fontSize: 15, fontWeight: "bold", color: "#374151" },
-  botaoRemover: { fontSize: 14 },
+  botaoRemover: { fontSize: 14, paddingLeft: 10, paddingVertical: 5 },
   textoDispositivo: { fontSize: 13, color: "#6b7280", marginTop: 4 },
 });

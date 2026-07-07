@@ -17,7 +17,6 @@ import { useData } from "../context/DataContext";
 import { calcularAlimentadorGeral } from "../utils/calculations";
 import { gerarMemorialPDF } from "../utils/pdfGenerator";
 
-// 💡 CORREÇÃO: Nova função que mantém os TUEs separados e aplica o desconto em cada um individualmente
 const aplicarDemandaTuesLista = (
   tueWatts: number[],
   distribuidora: string,
@@ -105,7 +104,6 @@ export default function TelaQuadro() {
       })
     : null;
 
-  // 💡 CORREÇÃO DA DEMANDA: Entregamos a lista de TUEs com desconto ao motor, sem misturar com as TUGs
   const resultadoDemanda =
     projetoTemDados && resultadoQDC
       ? calcularAlimentadorGeral({
@@ -115,7 +113,7 @@ export default function TelaQuadro() {
             distribuidora,
           ),
           tensao: tensaoGeral,
-          forcarTrifasico: resultadoQDC.ehTrifasico, // 💡 O truque está aqui! Sincroniza as fases.
+          forcarTrifasico: resultadoQDC.ehTrifasico,
         })
       : null;
 
@@ -190,7 +188,8 @@ export default function TelaQuadro() {
 
   return (
     <View style={styles.wrapperWeb}>
-      <CustomHeader title="Relatório e Dimensionamento" />
+      {/* 💡 AQUI FOI REDUZIDO O TEXTO PARA CABER O BOTÃO "X" PERFEITAMENTE */}
+      <CustomHeader title="Quadro Geral" />
 
       <ScrollView
         style={styles.container}
