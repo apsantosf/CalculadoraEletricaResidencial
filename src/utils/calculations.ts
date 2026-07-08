@@ -42,7 +42,6 @@ export const encontrarDisjuntorComercial = (
     10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125, 150, 175, 200, 225, 250,
   ];
 
-  // 💡 Garante a regra In <= Iz (Disjuntor menor ou igual à capacidade do cabo)
   const adequados = disjuntoresComerciais.filter(
     (d) => d >= correnteDemanda && d <= capacidadeCabo,
   );
@@ -99,7 +98,7 @@ export const sugerirBitolaPorQueda = (
   corrente: number,
   tensao: number,
 ) => {
-  const cabosPossiveis = tabelaCondutores.filter(
+  const cabosPossiveis = tableCondutores.filter(
     (c) => c.capacidadeCorrente >= corrente,
   );
   if (cabosPossiveis.length === 0)
@@ -218,23 +217,69 @@ export const calcularAlimentadorGeral = (dados: {
   potenciaIlumTugVA: number;
   potenciasTueWatts: number[];
   tensao: number;
-  forcarTrifasico?: boolean; // 💡 Adicionado para alinhar QDC e Demanda
+  forcarTrifasico?: boolean;
+  tipoImovel?: string;
+  isQDC?: boolean;
 }) => {
   const somaTues = dados.potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
-  const potenciaTotalVA = dados.potenciaIlumTugVA + somaTues;
+  const potenciaTotalBruta = dados.potenciaIlumTugVA + somaTues;
 
-  let correnteGeral = 0;
-  // 💡 A mágica: se o QDC principal for trifásico, a demanda também tem que ser!
-  const ehTrifasico = dados.forcarTrifasico || potenciaTotalVA > 25000;
+  // 💡 LÓGICA UNIFICADA E NORMATIVA:
+  // Aplicamos os fatores de demanda normativos igualmente para o QDC e a Entrada,
+  // garantindo consistência matemática entre as duas visões da tela.
+  const fatorTUGs = obterFatorDemandaGeral(dados.potenciaIlumTugVA);
 
-  if (ehTrifasico) {
-    const tensaoLinha = dados.tensao === 127 ? 220 : dados.tensao;
-    correnteGeral = potenciaTotalVA / (tensaoLinha * Math.sqrt(3));
-  } else {
-    correnteGeral = potenciaTotalVA / dados.tensao;
+  let fatorTUEs = 1.0;
+  const qtdTUEs = dados.potenciasTueWatts.length;
+  if (qtdTUEs === 2) fatorTUEs = 0.9;
+  else if (qtdTUEs >= 3 && qtdTUEs <= 5) fatorTUEs = 0.8;
+  else if (qtdTUEs >= 6) fatorTUEs = 0.7;
+
+  const somaTuesComFator = dados.potenciasTueWatts.reduce(
+    (acc, curr) => acc + curr * fatorTUEs,
+    0,
+  );
+
+  const potenciaDemandaDiferenciada =
+    dados.potenciaIlumTugVA * fatorTUGs + somaTuesComFator;
+
+  // Se for apartamento, mantém a infraestrutura bifásica interna de distribuição.
+  // Se for casa e a potência bruta ultrapassar o limite de 25kW, a transição trifásica é mandatória.
+  let ehTrifasico = dados.forcarTrifasico || false;
+  if (dados.tipoImovel !== "Apartamento" && potenciaTotalBruta > 25000) {
+    ehTrifasico = true;
   }
 
-  // 💡 Garantia de Coordenação (Ib <= In <= Iz)
+  let correnteGeral = 0;
+
+  if (ehTrifasico) {
+    const tensaoLinha = dados.tensao === 127 ? 220 : 380;
+    correnteGeral = potenciaDemandaDiferenciada / (tensaoLinha * Math.sqrt(3));
+  } else {
+    correnteGeral = potenciaDemandaDiferenciada / dados.tensao;
+  }
+
+  // 💡 CRITÉRIO DE SELETIVIDADE TÉCNICA E SEGURANÇA:
+  // Para blindar contra desarmes simultâneos (ex: dois chuveiros de alta potência ligados),
+  // a corrente base calculada é validada contra o pior cenário real de concorrência de carga.
+  let correnteMinimaSeguranca = 0;
+  if (dados.potenciasTueWatts.length > 0) {
+    const maiorTUE = Math.max(...dados.potenciasTueWatts);
+    const tensaoMaiorEquipamento = maiorTUE > 3000 ? 220 : dados.tensao;
+    // Pega o maior circuito individual e adiciona uma margem segura para o uso do restante dos cômodos
+    correnteMinimaSeguranca = maiorTUE / tensaoMaiorEquipamento + 15;
+  } else {
+    correnteMinimaSeguranca = 6800 / 220 + 10;
+  }
+
+  if (correnteGeral < correnteMinimaSeguranca) {
+    correnteGeral = correnteMinimaSeguranca;
+  }
+
+  if (ehTrifasico && correnteGeral < 40) {
+    correnteGeral = 40;
+  }
+
   let caboIdeal = tabelaCondutores[tabelaCondutores.length - 1];
   let disjuntorGeral = 250;
 
@@ -247,16 +292,16 @@ export const calcularAlimentadorGeral = (dados: {
       if (disj >= correnteGeral && disj <= c.capacidadeCorrente) {
         caboIdeal = c;
         disjuntorGeral = disj;
-        break; // Encontramos o par perfeito!
+        break;
       }
     }
   }
 
   return {
-    potenciaTotalVA: Math.round(potenciaTotalVA),
+    potenciaTotalVA: Math.round(potenciaDemandaDiferenciada),
     correnteGeral: Number(correnteGeral.toFixed(1)),
     caboGeral: caboIdeal.bitola,
     disjuntorGeral,
-    ehTrifasico, // 💡 Passamos adiante para a próxima função saber
+    ehTrifasico,
   };
 };

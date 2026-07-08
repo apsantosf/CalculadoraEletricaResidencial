@@ -39,7 +39,10 @@ export function CardVerificacaoRamal({
   const [resultadosLocal, setResultadosLocal] = useState<any>(null);
 
   const potAtual = parseFloat(potenciaEditavel) || 0;
-  const obrigatorioTrifasico = potAtual >= 25000;
+
+  // 💡 CORREÇÃO: Apartamentos NUNCA ficam travados no trifásico obrigatório
+  const obrigatorioTrifasico =
+    tipoImovel !== "Apartamento" && potAtual >= 25000;
 
   useEffect(() => {
     if (potenciaTotal > 0) {
@@ -107,7 +110,8 @@ export function CardVerificacaoRamal({
       sistemaDistribuicao,
     );
 
-    if (potBrutaAlvo >= 25000) {
+    // 💡 CORREÇÃO: Fornecimento só muda forçado para Trifásico se NÃO for apartamento
+    if (tipoImovel !== "Apartamento" && potBrutaAlvo >= 25000) {
       fornecimentoCalculado = "Trifásico (3 Polos)";
     }
 
@@ -185,7 +189,6 @@ export function CardVerificacaoRamal({
         </View>
       )}
 
-      {/* 💡 BOTÃO RESTAURADO */}
       {potenciaOriginal > 0 && (
         <View style={styles.containerReservaAcao}>
           <TouchableOpacity
@@ -214,7 +217,6 @@ export function CardVerificacaoRamal({
         </View>
       )}
 
-      {/* 💡 ALINHAMENTO LADO A LADO RESTAURADO */}
       <View style={styles.row}>
         {tipoImovel === "Casa" && (
           <View style={styles.col}>
@@ -264,21 +266,23 @@ export function CardVerificacaoRamal({
             {resultadosLocal.correnteDemanda} A)
           </Text>
 
-          {resultadosLocal.cargaInstaladaConsiderada >= 25000 && (
-            <View style={styles.alertaTrifasico}>
-              <Text style={styles.alertaTrifasicoTitulo}>
-                ⚠️ ATENÇÃO: LIMITE BIFÁSICO EXCEDIDO
-              </Text>
-              <Text style={styles.alertaTrifasicoTexto}>
-                A Carga Instalada (Potência Bruta) do projeto atingiu{" "}
-                {resultadosLocal.cargaInstaladaConsiderada} VA, ultrapassando o
-                limite de 25.000 VA. Pelas normas da concessionária, torna-se
-                obrigatória a transição para um fornecimento Trifásico. O
-                sistema não pode operar sob rede Bifásica neste nível de
-                potência.
-              </Text>
-            </View>
-          )}
+          {/* 💡 CORREÇÃO: Esconde o alerta vermelho caso seja Apartamento */}
+          {resultadosLocal.cargaInstaladaConsiderada >= 25000 &&
+            tipoImovel !== "Apartamento" && (
+              <View style={styles.alertaTrifasico}>
+                <Text style={styles.alertaTrifasicoTitulo}>
+                  ⚠️ ATENÇÃO: LIMITE BIFÁSICO EXCEDIDO
+                </Text>
+                <Text style={styles.alertaTrifasicoTexto}>
+                  A Carga Instalada (Potência Bruta) do projeto atingiu{" "}
+                  {resultadosLocal.cargaInstaladaConsiderada} VA, ultrapassando
+                  o limite de 25.000 VA. Pelas normas da concessionária,
+                  torna-se obrigatória a transição para um fornecimento
+                  Trifásico. O sistema não pode operar sob rede Bifásica neste
+                  nível de potência.
+                </Text>
+              </View>
+            )}
 
           {resultadosLocal.trecho1 && (
             <View style={styles.linhaTrecho}>

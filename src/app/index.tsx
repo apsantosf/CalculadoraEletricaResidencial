@@ -1,6 +1,7 @@
 // src/app/index.tsx
 import { useEffect } from "react";
 import {
+  Linking, // 💡 Importação necessária para abrir o link
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +10,7 @@ import {
 } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
-import { checarAtualizacao } from "../utils/UpdateHelper"; // <--- Importação limpa
+import { checarAtualizacao } from "../utils/UpdateHelper";
 
 export default function ScreenInicio() {
   const {
@@ -23,16 +24,30 @@ export default function ScreenInicio() {
     setTipoImovel,
   } = useData();
 
-  // Chama a função ao abrir a tela. O Expo decide qual arquivo usar!
   useEffect(() => {
     checarAtualizacao();
   }, []);
+
+  // 💡 A função do manual agora vive aqui!
+  const handleAbrirManual = () => {
+    Linking.openURL(
+      "https://drive.google.com/file/d/1aotS8GKZ92lalZR4whRGmYnAYFEB0Yxl/view?usp=sharing",
+    );
+  };
 
   return (
     <View style={styles.container}>
       <CustomHeader title="Previsão de Carga" />
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Bloco 0: Botão do Manual de Instruções */}
+        <TouchableOpacity
+          style={styles.botaoManual}
+          onPress={handleAbrirManual}
+        >
+          <Text style={styles.textoBotaoManual}>📖 Ler Manual do Usuário</Text>
+        </TouchableOpacity>
+
         {/* Bloco 1: Tipo de Imóvel */}
         <View style={styles.cardConfig}>
           <Text style={styles.labelSecao}>Tipo de Imóvel</Text>
@@ -189,6 +204,22 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     paddingBottom: 100,
   },
+
+  // 💡 Estilos do botão de Manual
+  botaoManual: {
+    backgroundColor: "#8b5cf6", // Cor roxa para destacar
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 16,
+    elevation: 2,
+  },
+  textoBotaoManual: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
   cardConfig: {
     backgroundColor: "#fff",
     padding: 16,

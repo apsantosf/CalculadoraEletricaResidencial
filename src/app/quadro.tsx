@@ -14,7 +14,10 @@ import { CardResumoQuadro } from "../components/ui/CardResumoQuadro";
 import { CardVerificacaoRamal } from "../components/ui/CardVerificacaoRamal";
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
-import { calcularAlimentadorGeral } from "../utils/calculations";
+import {
+  calcularAlimentadorGeral,
+  obterFatorDemandaGeral,
+} from "../utils/calculations";
 import { gerarMemorialPDF } from "../utils/pdfGenerator";
 
 const aplicarDemandaTuesLista = (
@@ -101,19 +104,24 @@ export default function TelaQuadro() {
         potenciaIlumTugVA: somaIlumTugVA,
         potenciasTueWatts: listaWattsTue,
         tensao: tensaoGeral,
+        tipoImovel: tipoImovel,
+        isQDC: true,
       })
     : null;
 
   const resultadoDemanda =
     projetoTemDados && resultadoQDC
       ? calcularAlimentadorGeral({
-          potenciaIlumTugVA: somaIlumTugVA,
+          potenciaIlumTugVA:
+            somaIlumTugVA * obterFatorDemandaGeral(somaIlumTugVA),
           potenciasTueWatts: aplicarDemandaTuesLista(
             listaWattsTue,
             distribuidora,
           ),
           tensao: tensaoGeral,
           forcarTrifasico: resultadoQDC.ehTrifasico,
+          tipoImovel: tipoImovel,
+          isQDC: false,
         })
       : null;
 
@@ -188,7 +196,6 @@ export default function TelaQuadro() {
 
   return (
     <View style={styles.wrapperWeb}>
-      {/* 💡 AQUI FOI REDUZIDO O TEXTO PARA CABER O BOTÃO "X" PERFEITAMENTE */}
       <CustomHeader title="Quadro Geral" />
 
       <ScrollView
@@ -250,11 +257,28 @@ export default function TelaQuadro() {
             </View>
 
             {resultadoQDC && resultadoDemanda && (
-              <CardResumoQuadro
-                resultadoQDC={resultadoQDC}
-                resultadoDemanda={resultadoDemanda}
-                concessionaria={distribuidora}
-              />
+              <View>
+                {resultadoQDC.ehTrifasico && totalBrutoAplicado > 25000 && (
+                  <View style={styles.alertaTrifasico}>
+                    <Text style={styles.tituloAlerta}>
+                      ⚠️ Alteração para Trifásico
+                    </Text>
+                    <Text style={styles.textoAlerta}>
+                      A carga total atingiu {Math.round(totalBrutoAplicado)} VA
+                      (acima do limite da concessionária). O dimensionamento
+                      geral foi ajustado automaticamente para a rede Trifásica (
+                      {tensaoGeral === 127 ? "220V" : "380V"} entre fases) para
+                      evitar desequilíbrio.
+                    </Text>
+                  </View>
+                )}
+
+                <CardResumoQuadro
+                  resultadoQDC={resultadoQDC}
+                  resultadoDemanda={resultadoDemanda}
+                  concessionaria={distribuidora}
+                />
+              </View>
             )}
           </View>
         )}
@@ -328,6 +352,27 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 4 },
+
+  alertaTrifasico: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fcd34d",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  tituloAlerta: {
+    color: "#d97706",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  textoAlerta: {
+    color: "#92400e",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
   botoesAcaoContainer: { marginTop: 10 },
   botaoExportar: {
     backgroundColor: "#10b981",
