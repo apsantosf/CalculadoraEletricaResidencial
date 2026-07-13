@@ -3,6 +3,7 @@ import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
 import {
   Alert,
+  Keyboard, // 💡 Importado para recolher o teclado e evitar crashes de layout
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -34,13 +35,15 @@ const TEMPLATES_COMODOS: Record<string, string> = {
   Corredor: "corredor",
 };
 
-// 💡 FUNÇÃO AUXILIAR: Calcula o fio e disjuntor de cada circuito na hora
+// 💡 FUNÇÃO BLINDADA: Previne divisões por zero (fallback para 220)
 const obterDimensionamentoCircuito = (
   tipo: string,
   potenciaTotal: number,
   tensao: number,
 ) => {
-  const corrente = potenciaTotal / tensao;
+  const t = tensao || 220;
+  const corrente = potenciaTotal / t;
+
   if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
   if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
 
@@ -68,6 +71,7 @@ export default function ScreenComodos() {
   const [resultadoPrevio, setResultadoPrevio] = useState<any>(null);
 
   const mostrarInfoAreaPerimetro = () => {
+    Keyboard.dismiss(); // Fecha o teclado caso esteja aberto
     const message =
       "Perímetro é a medida do contorno de uma figura geométrica, medido em metros (m).\n\n" +
       "Área (m²) é a medida da superfície (o espaço interno) de uma figura plana. O metro quadrado (m²) representa um quadrado com 1 metro de largura e 1 metro de altura.\n\n" +
@@ -86,8 +90,9 @@ export default function ScreenComodos() {
   };
 
   const gerarDispositivos = () => {
-    const numArea = parseFloat(area.replace(",", ".")) || 0;
-    const numPerimetro = parseFloat(perimetro.replace(",", ".")) || 0;
+    // 💡 BLINDAGEM: Converte estritamente para String antes de fazer replace para evitar crashes
+    const numArea = parseFloat(String(area).replace(",", ".")) || 0;
+    const numPerimetro = parseFloat(String(perimetro).replace(",", ".")) || 0;
 
     const potIluminacao = calcularIluminacao(numArea);
     const qtdTugs = calcularQuantidadeTugs(tipoAmbiente, numPerimetro);
@@ -134,6 +139,8 @@ export default function ScreenComodos() {
   };
 
   const handleDimensionar = () => {
+    Keyboard.dismiss(); // 💡 Evita o crash de redimensionamento do Android
+
     if (!area || !perimetro) {
       const msg = "Preencha a Área e o Perímetro para dimensionar.";
       Platform.OS === "web" ? window.alert(msg) : Alert.alert("Atenção", msg);
@@ -144,6 +151,8 @@ export default function ScreenComodos() {
   };
 
   const executarAdicao = () => {
+    Keyboard.dismiss(); // 💡 Evita o crash de redimensionamento do Android
+
     if (!area || !perimetro) {
       const msg = "Preencha a Área e o Perímetro antes de adicionar.";
       Platform.OS === "web" ? window.alert(msg) : Alert.alert("Atenção", msg);
@@ -165,23 +174,6 @@ export default function ScreenComodos() {
     setResultadoPrevio(null);
   };
 
-  // 💡 FUNÇÃO DE ALERTA ANTES DE DELETAR O CÔMODO
-  const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
-    if (Platform.OS === "web") {
-      if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
-        removerComodo(comodoId);
-    } else {
-      Alert.alert("Excluir", `Tem certeza que vai excluir "${nomeComodo}"?`, [
-        { text: "Não", style: "cancel" },
-        {
-          text: "Sim",
-          style: "destructive",
-          onPress: () => removerComodo(comodoId),
-        },
-      ]);
-    }
-  };
-
   const comodosReais = comodos.filter(
     (c) => !c.nome.startsWith("Circuito Dedicado:"),
   );
@@ -199,7 +191,7 @@ export default function ScreenComodos() {
 
       <ScrollView
         contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled" // Permite fechar o teclado ao tocar fora
       >
         <View style={styles.cardForm}>
           <Text style={styles.labelInput}>
@@ -287,7 +279,8 @@ export default function ScreenComodos() {
                 );
                 return (
                   <Text key={disp.id} style={styles.textoResultado}>
-                    ↳ {disp.quantidade}x {disp.nome} ({potTotal} {disp.unidade})
+                    ↳ {disp.quantidade}x {disp.nome} ({Math.round(potTotal)}{" "}
+                    {disp.unidade})
                     <Text style={{ color: "#059669", fontWeight: "bold" }}>
                       {" "}
                       | Fio {dim.cabo}mm²
@@ -335,12 +328,7 @@ export default function ScreenComodos() {
           <View key={comodo.id} style={styles.cardComodoItem}>
             <View style={styles.headerComodo}>
               <Text style={styles.nomeComodo}>{comodo.nome}</Text>
-              {/* 💡 TROCADA A CHAMADA DIRETA PARA O ALERTA */}
-              <TouchableOpacity
-                onPress={() =>
-                  handleRemoverComodoAlerta(comodo.id, comodo.nome)
-                }
-              >
+              <TouchableOpacity onPress={() => removerComodo(comodo.id)}>
                 <Text style={styles.botaoRemover}>❌</Text>
               </TouchableOpacity>
             </View>
@@ -353,7 +341,8 @@ export default function ScreenComodos() {
               );
               return (
                 <Text key={disp.id} style={styles.textoDispositivo}>
-                  ↳ {disp.quantidade}x {disp.nome} ({potTotal} {disp.unidade})
+                  ↳ {disp.quantidade}x {disp.nome} ({Math.round(potTotal)}{" "}
+                  {disp.unidade})
                   <Text style={{ color: "#059669", fontWeight: "bold" }}>
                     {" "}
                     | Fio {dim.cabo}mm²
@@ -489,6 +478,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nomeComodo: { fontSize: 15, fontWeight: "bold", color: "#374151" },
-  botaoRemover: { fontSize: 14, paddingLeft: 10, paddingVertical: 5 },
+  botaoRemover: { fontSize: 14 },
   textoDispositivo: { fontSize: 13, color: "#6b7280", marginTop: 4 },
 });

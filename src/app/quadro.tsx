@@ -63,30 +63,40 @@ export default function TelaQuadro() {
 
   const calcularPotenciasAtuais = () => {
     let somaIlumTugVA = 0;
-    let listaWattsTue: number[] = [];
+    let listaVATue: number[] = [];
     let totalBrutoOriginal = 0;
 
     const fatorMultiplicador = reservaAplicada ? 1.3 : 1.0;
 
     comodos.forEach((c) => {
       c.dispositivos.forEach((d) => {
-        const potOriginal = d.potencia * d.quantidade;
-        totalBrutoOriginal += potOriginal;
+        let potOriginalVA = d.potencia * d.quantidade;
 
-        const potComReserva = potOriginal * fatorMultiplicador;
+        if (d.tipo === "tue") {
+          const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
+          potOriginalVA = potOriginalVA / fp;
+        }
 
-        if (d.tipo === "iluminacao" || d.tipo === "tug")
+        totalBrutoOriginal += potOriginalVA;
+        const potComReserva = potOriginalVA * fatorMultiplicador;
+
+        if (d.tipo === "iluminacao" || d.tipo === "tug") {
           somaIlumTugVA += potComReserva;
-        else if (d.tipo === "tue") listaWattsTue.push(potComReserva);
+        } else if (d.tipo === "tue") {
+          listaVATue.push(potComReserva);
+        }
       });
     });
 
-    const totalBrutoAplicado = totalBrutoOriginal * fatorMultiplicador;
+    // 💡 CORREÇÃO: Arredondamos tudo para eliminar a dízima gigantesca da tela
+    const totalBrutoAplicado = Math.round(
+      totalBrutoOriginal * fatorMultiplicador,
+    );
 
     return {
-      somaIlumTugVA,
-      listaWattsTue,
-      totalBrutoOriginal,
+      somaIlumTugVA: Math.round(somaIlumTugVA),
+      listaWattsTue: listaVATue.map(Math.round),
+      totalBrutoOriginal: Math.round(totalBrutoOriginal),
       totalBrutoAplicado,
     };
   };
@@ -104,24 +114,22 @@ export default function TelaQuadro() {
         potenciaIlumTugVA: somaIlumTugVA,
         potenciasTueWatts: listaWattsTue,
         tensao: tensaoGeral,
-        tipoImovel: tipoImovel,
-        isQDC: true,
+        forcarTrifasico: false,
       })
     : null;
 
   const resultadoDemanda =
     projetoTemDados && resultadoQDC
       ? calcularAlimentadorGeral({
-          potenciaIlumTugVA:
+          potenciaIlumTugVA: Math.round(
             somaIlumTugVA * obterFatorDemandaGeral(somaIlumTugVA),
+          ),
           potenciasTueWatts: aplicarDemandaTuesLista(
             listaWattsTue,
             distribuidora,
-          ),
+          ).map(Math.round),
           tensao: tensaoGeral,
           forcarTrifasico: resultadoQDC.ehTrifasico,
-          tipoImovel: tipoImovel,
-          isQDC: false,
         })
       : null;
 
@@ -150,12 +158,15 @@ export default function TelaQuadro() {
         texto += `\n• ${c.nome}:\n`;
         c.dispositivos.forEach((d) => {
           const potTotal = d.potencia * d.quantidade;
+
+          let potVA = potTotal;
+          if (d.tipo === "tue") {
+            const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
+            potVA = potTotal / fp;
+          }
+
           const unidade = d.tipo === "tue" ? "W" : "VA";
-          const dim = obterDimensionamentoCircuito(
-            d.tipo,
-            potTotal,
-            tensaoGeral,
-          );
+          const dim = obterDimensionamentoCircuito(d.tipo, potVA, tensaoGeral);
           texto += `  - ${d.quantidade}x ${d.nome} (${potTotal} ${unidade}) | Fio: ${dim.cabo}mm² | Disj: ${dim.disj}A\n`;
         });
       });
@@ -221,9 +232,18 @@ export default function TelaQuadro() {
                     <Text style={styles.nomeCircuito}>{c.nome}</Text>
                     {c.dispositivos.map((d, index) => {
                       const potTotal = d.potencia * d.quantidade;
+
+                      let potVA = potTotal;
+                      if (d.tipo === "tue") {
+                        const fp = d.nome.toLowerCase().includes("chuveiro")
+                          ? 1.0
+                          : 0.85;
+                        potVA = potTotal / fp;
+                      }
+
                       const dim = obterDimensionamentoCircuito(
                         d.tipo,
-                        potTotal,
+                        potVA,
                         tensaoGeral,
                       );
                       return (

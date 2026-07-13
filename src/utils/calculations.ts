@@ -98,7 +98,7 @@ export const sugerirBitolaPorQueda = (
   corrente: number,
   tensao: number,
 ) => {
-  const cabosPossiveis = tableCondutores.filter(
+  const cabosPossiveis = tabelaCondutores.filter(
     (c) => c.capacidadeCorrente >= corrente,
   );
   if (cabosPossiveis.length === 0)
@@ -218,66 +218,19 @@ export const calcularAlimentadorGeral = (dados: {
   potenciasTueWatts: number[];
   tensao: number;
   forcarTrifasico?: boolean;
-  tipoImovel?: string;
-  isQDC?: boolean;
 }) => {
+  // 💡 A função agora apenas soma os valores EXATOS que recebe, sem aplicar descontos fantasmas!
   const somaTues = dados.potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
-  const potenciaTotalBruta = dados.potenciaIlumTugVA + somaTues;
-
-  // 💡 LÓGICA UNIFICADA E NORMATIVA:
-  // Aplicamos os fatores de demanda normativos igualmente para o QDC e a Entrada,
-  // garantindo consistência matemática entre as duas visões da tela.
-  const fatorTUGs = obterFatorDemandaGeral(dados.potenciaIlumTugVA);
-
-  let fatorTUEs = 1.0;
-  const qtdTUEs = dados.potenciasTueWatts.length;
-  if (qtdTUEs === 2) fatorTUEs = 0.9;
-  else if (qtdTUEs >= 3 && qtdTUEs <= 5) fatorTUEs = 0.8;
-  else if (qtdTUEs >= 6) fatorTUEs = 0.7;
-
-  const somaTuesComFator = dados.potenciasTueWatts.reduce(
-    (acc, curr) => acc + curr * fatorTUEs,
-    0,
-  );
-
-  const potenciaDemandaDiferenciada =
-    dados.potenciaIlumTugVA * fatorTUGs + somaTuesComFator;
-
-  // Se for apartamento, mantém a infraestrutura bifásica interna de distribuição.
-  // Se for casa e a potência bruta ultrapassar o limite de 25kW, a transição trifásica é mandatória.
-  let ehTrifasico = dados.forcarTrifasico || false;
-  if (dados.tipoImovel !== "Apartamento" && potenciaTotalBruta > 25000) {
-    ehTrifasico = true;
-  }
+  const potenciaTotalVA = dados.potenciaIlumTugVA + somaTues;
 
   let correnteGeral = 0;
+  const ehTrifasico = dados.forcarTrifasico || potenciaTotalVA > 25000;
 
   if (ehTrifasico) {
-    const tensaoLinha = dados.tensao === 127 ? 220 : 380;
-    correnteGeral = potenciaDemandaDiferenciada / (tensaoLinha * Math.sqrt(3));
+    const tensaoLinha = dados.tensao === 127 ? 220 : dados.tensao;
+    correnteGeral = potenciaTotalVA / (tensaoLinha * Math.sqrt(3));
   } else {
-    correnteGeral = potenciaDemandaDiferenciada / dados.tensao;
-  }
-
-  // 💡 CRITÉRIO DE SELETIVIDADE TÉCNICA E SEGURANÇA:
-  // Para blindar contra desarmes simultâneos (ex: dois chuveiros de alta potência ligados),
-  // a corrente base calculada é validada contra o pior cenário real de concorrência de carga.
-  let correnteMinimaSeguranca = 0;
-  if (dados.potenciasTueWatts.length > 0) {
-    const maiorTUE = Math.max(...dados.potenciasTueWatts);
-    const tensaoMaiorEquipamento = maiorTUE > 3000 ? 220 : dados.tensao;
-    // Pega o maior circuito individual e adiciona uma margem segura para o uso do restante dos cômodos
-    correnteMinimaSeguranca = maiorTUE / tensaoMaiorEquipamento + 15;
-  } else {
-    correnteMinimaSeguranca = 6800 / 220 + 10;
-  }
-
-  if (correnteGeral < correnteMinimaSeguranca) {
-    correnteGeral = correnteMinimaSeguranca;
-  }
-
-  if (ehTrifasico && correnteGeral < 40) {
-    correnteGeral = 40;
+    correnteGeral = potenciaTotalVA / dados.tensao;
   }
 
   let caboIdeal = tabelaCondutores[tabelaCondutores.length - 1];
@@ -298,7 +251,7 @@ export const calcularAlimentadorGeral = (dados: {
   }
 
   return {
-    potenciaTotalVA: Math.round(potenciaDemandaDiferenciada),
+    potenciaTotalVA: Math.round(potenciaTotalVA),
     correnteGeral: Number(correnteGeral.toFixed(1)),
     caboGeral: caboIdeal.bitola,
     disjuntorGeral,
