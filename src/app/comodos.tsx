@@ -174,6 +174,23 @@ export default function ScreenComodos() {
     setResultadoPrevio(null);
   };
 
+  // 💡 INSERIDO AQUI: Função de confirmação antes de deletar
+  const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
+        removerComodo(comodoId);
+    } else {
+      Alert.alert("Excluir", `Tem certeza que vai excluir "${nomeComodo}"?`, [
+        { text: "Não", style: "cancel" },
+        {
+          text: "Sim",
+          style: "destructive",
+          onPress: () => removerComodo(comodoId),
+        },
+      ]);
+    }
+  };
+
   const comodosReais = comodos.filter(
     (c) => !c.nome.startsWith("Circuito Dedicado:"),
   );
@@ -328,7 +345,12 @@ export default function ScreenComodos() {
           <View key={comodo.id} style={styles.cardComodoItem}>
             <View style={styles.headerComodo}>
               <Text style={styles.nomeComodo}>{comodo.nome}</Text>
-              <TouchableOpacity onPress={() => removerComodo(comodo.id)}>
+              {/* 💡 INSERIDO AQUI: A chamada para a nova função de confirmação */}
+              <TouchableOpacity
+                onPress={() =>
+                  handleRemoverComodoAlerta(comodo.id, comodo.nome)
+                }
+              >
                 <Text style={styles.botaoRemover}>❌</Text>
               </TouchableOpacity>
             </View>
