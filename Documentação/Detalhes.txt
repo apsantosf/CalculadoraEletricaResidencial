@@ -1,0 +1,28 @@
+96:57:BA:46:50:E8:EA:19:FE:3B:B0:ED:2B:45:11:FE:66:73:22:9F:B0:47:EA:5C:0C:94:C1:DD:C7:6E:DD:A2
+
+
+Bem-vindo à Calculadora de Previsão de Carga Elétrica!
+Esta é a versão inicial do aplicativo, desenvolvida para auxiliar eletricistas e projetistas a realizar cálculos de carga elétrica com precisão e rapidez, seguindo as normas técnicas da NBR 5410.
+O que você encontrará nesta versão:
+Cálculo de carga por cômodo.
+Dimensionamento de condutores.
+Cálculo de disjuntores.
+Interface intuitiva e ágil para uso profissional.
+
+para criar o .aab de Produção final
+npx eas build --platform android --profile production
+
+para criar .aad de teste (para ver se a loja aceita)
+npx eas build --platform android --profile preview-bundle
+
+para criar o .apk de teste rápido
+npx eas build --profile preview --platform android
+
+Para utilizar bundletool-all-[versão].jar
+java -jar C:\path\to\your\bundletool-all-x.x.x.jar
+
+Depois do commit
+git tag -a v2.1.0 -m "Release da Versão 2.1.0 - Destravado tela inicial, qualquer dado que for modificado refazerá todos os cálculos e telas que já foram utilizadas"
+
+Depois do push
+git push --tags         

@@ -1,0 +1,11 @@
+Título: Elétrica Residencial - Dimensionamento Técnico
+Descrição Curta: Cálculo rápido e seguro de cargas elétricas conforme a NBR 5410.
+Descrição Completa: O "Elétrica Residencial" é a ferramenta essencial para eletricistas, engenheiros e projetistas realizarem o dimensionamento de circuitos residenciais com precisão e segurança.
+Desenvolvido para facilitar o dia a dia de profissionais, o app simplifica o cálculo de cargas, dimensionamento de disjuntores e seleção de cabos, tudo em total conformidade com as normas da NBR 5410.
+Principais funcionalidades:
+Cálculo de Tomadas: Determina o número mínimo de tomadas por cômodo, baseando-se na área (m²) e no perímetro real, respeitando a regra de espaçamento.
+Dimensionamento Técnico: Auxílio no dimensionamento de TUEs e TIEs.
+Relatórios: Gere relatórios técnicos profissionais e compartilhe rapidamente com seus clientes via WhatsApp ou e-mail.
+Por que usar o Elétrica Residencial?
+Se você busca um trabalho seguro e profissional, este app é o seu parceiro de campo. Trabalhamos constantemente em atualizações para incluir as normas específicas de diferentes concessionárias de energia, garantindo que você esteja sempre dentro das diretrizes locais.
+Baixe agora e tenha a segurança da NBR 5410 na palma da sua mão.

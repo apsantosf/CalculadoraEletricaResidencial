@@ -27,7 +27,7 @@ function BarraInferiorFixa() {
   const bottomOffset =
     Platform.OS === "android" ? Math.max(insets.bottom + 16, 24) : 24;
 
-  // 💡 NOVA ESTRUTURA DE ABAS ATUALIZADA
+  // 💡 NOVA ESTRUTURA DE ABAS ATUALIZADA (Agora com o Guia)
   const tabs = [
     { key: "/", title: "Início", icon: "home", pack: "fontawesome" },
     {
@@ -42,6 +42,13 @@ function BarraInferiorFixa() {
       title: "Quadro Geral",
       icon: "electric-switch",
       pack: "material",
+    },
+    // 👇 NOSSA NOVA ABA AQUI
+    {
+      key: "/guia",
+      title: "Guia",
+      icon: "tools",
+      pack: "fontawesome",
     },
   ];
 
