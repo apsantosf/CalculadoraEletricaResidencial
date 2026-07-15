@@ -1,4 +1,3 @@
-// src/app/galeria.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
@@ -10,7 +9,8 @@ export default function GaleriaQuadros() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerTitle}>
           <FontAwesome5 name="images" size={24} color="#8b5cf6" />

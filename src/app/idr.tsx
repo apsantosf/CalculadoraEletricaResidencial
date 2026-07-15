@@ -1,4 +1,3 @@
-// src/app/idr.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
@@ -10,7 +9,8 @@ export default function GuiaIDR() {
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerTitle}>
           <FontAwesome5 name="exclamation-triangle" size={24} color="#f59e0b" />
