@@ -1,5 +1,5 @@
-// src/app/guia.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import {
   ScrollView,
   StyleSheet,
@@ -8,27 +8,83 @@ import {
   View,
 } from "react-native";
 
-import { useRouter } from "expo-router";
-
-// 💡 Importando o Cabeçalho Padrão e o Contexto
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
+import {
+  calcularAlimentadorGeral,
+  obterFatorDemandaGeral,
+} from "../utils/calculations";
 
 export default function TelaGuia() {
   const router = useRouter();
 
-  // Puxando os dados reais do seu contexto (mesmo padrão do quadro.tsx)
-  const { comodos, tensaoGeral } = useData();
+  // 💡 Importamos a distribuidora para deixar a regra completa
+  const { comodos, tensaoGeral, distribuidora } = useData();
 
-  // Verifica se o usuário já adicionou algo no projeto
   const projetoTemDados = comodos && comodos.length > 0;
-
-  const correnteGeral = projetoTemDados ? 40 : null;
   const voltagem = tensaoGeral || 220;
+
+  // 💡 LÓGICA DE CÁLCULO DINÂMICO DO DISJUNTOR E IDR
+  let disjuntorGeralCalculado = 0;
+  let idrRecomendado = 0;
+
+  if (projetoTemDados) {
+    let somaIlumTugVA = 0;
+    let listaVATue: number[] = [];
+
+    // 1. Somatório das cargas instaladas
+    comodos.forEach((c) => {
+      c.dispositivos.forEach((d) => {
+        let potOriginalVA = d.potencia * d.quantidade;
+        if (d.tipo === "tue") {
+          const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
+          potOriginalVA = potOriginalVA / fp;
+          listaVATue.push(potOriginalVA);
+        } else {
+          somaIlumTugVA += potOriginalVA;
+        }
+      });
+    });
+
+    // 2. Aplicando fator de demanda nos TUEs (mesma regra do quadro)
+    let fatorTue = 1.0;
+    if (listaVATue.length === 2) fatorTue = 0.9;
+    else if (listaVATue.length >= 3 && listaVATue.length <= 5) fatorTue = 0.8;
+    else if (listaVATue.length >= 6) fatorTue = 0.7;
+    const tuesComDemanda = listaVATue.map((pot) => Math.round(pot * fatorTue));
+
+    // 3. Demanda de Iluminação e TUGs
+    const demandaIlumTug = Math.round(
+      somaIlumTugVA * obterFatorDemandaGeral(Math.round(somaIlumTugVA)),
+    );
+
+    // 4. Verificando necessidade de rede trifásica pelo QDC Interno
+    const resultadoQDC = calcularAlimentadorGeral({
+      potenciaIlumTugVA: Math.round(somaIlumTugVA),
+      potenciasTueWatts: listaVATue.map(Math.round),
+      tensao: tensaoGeral,
+      forcarTrifasico: false,
+    });
+
+    // 5. Cálculo final do Padrão de Entrada
+    const resultadoDemanda = calcularAlimentadorGeral({
+      potenciaIlumTugVA: demandaIlumTug,
+      potenciasTueWatts: tuesComDemanda,
+      tensao: tensaoGeral,
+      forcarTrifasico: resultadoQDC?.ehTrifasico || false,
+    });
+
+    disjuntorGeralCalculado = resultadoDemanda?.disjuntorGeral || 0;
+
+    // 6. Encontrando o IDR Comercial adequado (Regra: Nominal IDR >= Disjuntor Geral)
+    const idrsComerciais = [25, 40, 63, 80, 100, 125];
+    idrRecomendado =
+      idrsComerciais.find((idr) => idr >= disjuntorGeralCalculado) ||
+      disjuntorGeralCalculado;
+  }
 
   return (
     <View style={styles.wrapperWeb}>
-      {/* 💡 O MESMO CABEÇALHO DAS OUTRAS TELAS */}
       <CustomHeader title="Guia Prático" />
 
       <ScrollView
@@ -40,21 +96,21 @@ export default function TelaGuia() {
         </Text>
 
         {/* SESSÃO 1: Dimensionamento Inteligente */}
-        {projetoTemDados && correnteGeral ? (
+        {projetoTemDados && disjuntorGeralCalculado > 0 ? (
           <View style={styles.smartCard}>
             <Text style={styles.cardTitle}>
               Recomendação Base ({voltagem}V)
             </Text>
             <Text style={styles.cardText}>
-              Disjuntor Geral (Exemplo):{" "}
-              <Text style={styles.bold}>{correnteGeral}A</Text>
+              Disjuntor Padrão ({distribuidora || "CPFL"}):{" "}
+              <Text style={styles.bold}>{disjuntorGeralCalculado}A</Text>
             </Text>
             <Text style={styles.cardText}>
-              IDR Recomendado:{" "}
-              <Text style={styles.bold}>≥ {correnteGeral}A</Text>
+              IDR Recomendado (In):{" "}
+              <Text style={styles.bold}>≥ {idrRecomendado}A</Text>
             </Text>
             <Text style={styles.cardText}>
-              DPS Recomendado:{" "}
+              DPS Recomendado (Uc):{" "}
               <Text style={styles.bold}>
                 {voltagem <= 127 ? "175V" : "275V"} (Classe II)
               </Text>
