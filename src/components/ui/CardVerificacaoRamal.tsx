@@ -40,7 +40,6 @@ export function CardVerificacaoRamal({
 
   const potAtual = parseFloat(potenciaEditavel) || 0;
 
-  // 💡 CORREÇÃO: Apartamentos NUNCA ficam travados no trifásico obrigatório
   const obrigatorioTrifasico =
     tipoImovel !== "Apartamento" && potAtual >= 25000;
 
@@ -83,13 +82,56 @@ export function CardVerificacaoRamal({
       return;
     }
 
-    const correnteDemanda = potBrutaAlvo / tensaoGeral;
+    // 💡 PASSO 1: Descobrir o disjuntor base
+    const correnteBruta = potBrutaAlvo / tensaoGeral;
+    const disjuntoresTeste = [
+      10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125, 150, 175, 200,
+    ];
+    let disjTeste = disjuntoresTeste.find((d) => d >= correnteBruta) || 200;
 
+    let fornecimentoCalculado = determinarTipoFornecimento(
+      disjTeste,
+      tensaoGeral,
+      sistemaDistribuicao,
+    );
+
+    // 💡 A MÁGICA ENTRA AQUI: Separamos as regras visualmente sem tocar no motor principal!
+    if (tipoImovel === "Apartamento") {
+      // O prédio aguenta o balanço. Permitimos Bifásico até 125A.
+      if (disjTeste > 40 && disjTeste <= 125) {
+        fornecimentoCalculado = "Bifásico (2 Polos)";
+      }
+    } else {
+      // Casas respeitam a regra dura do poste (passou de 70A ou 25000 VA = Trifásico)
+      if (disjTeste > 70 || potBrutaAlvo >= 25000) {
+        fornecimentoCalculado = "Trifásico (3 Polos)";
+      }
+    }
+
+    // 💡 PASSO 2: Dividir a Corrente com base no fornecimento ajustado
+    let correnteReal = correnteBruta;
+    const ehTrifasico = fornecimentoCalculado.includes("Trifásico");
+    const ehBifasico = fornecimentoCalculado.includes("Bifásico");
+
+    if (ehTrifasico) {
+      const tensaoLinha = tensaoGeral === 127 ? 220 : tensaoGeral;
+      correnteReal = potBrutaAlvo / (tensaoLinha * Math.sqrt(3));
+    } else if (ehBifasico) {
+      const divisor =
+        tensaoGeral === 127
+          ? 254
+          : sistemaDistribuicao === "220/380V"
+            ? 440
+            : 220;
+      correnteReal = potBrutaAlvo / divisor;
+    }
+
+    // 💡 PASSO 3: Rodar o motor original para os cabos e disjuntores finais
     const trecho1 =
       tipoImovel === "Casa"
         ? processarTrechoRamal(
             distExt,
-            correnteDemanda,
+            correnteReal,
             tensaoGeral,
             10,
             sistemaDistribuicao,
@@ -98,27 +140,20 @@ export function CardVerificacaoRamal({
 
     const trecho2 = processarTrechoRamal(
       distInt,
-      correnteDemanda,
+      correnteReal,
       tensaoGeral,
       4,
       sistemaDistribuicao,
     );
 
-    let fornecimentoCalculado = determinarTipoFornecimento(
-      trecho2.disjuntor,
-      tensaoGeral,
-      sistemaDistribuicao,
-    );
-
-    // 💡 CORREÇÃO: Fornecimento só muda forçado para Trifásico se NÃO for apartamento
-    if (tipoImovel !== "Apartamento" && potBrutaAlvo >= 25000) {
-      fornecimentoCalculado = "Trifásico (3 Polos)";
-    }
+    // Força o rótulo visual correto para não confundir o utilizador
+    if (trecho1) trecho1.classificacao = fornecimentoCalculado;
+    if (trecho2) trecho2.classificacao = fornecimentoCalculado;
 
     const resumoResultados = {
       cargaInstaladaConsiderada: Math.round(potBrutaAlvo),
       potenciaDemanda: Math.round(potBrutaAlvo),
-      correnteDemanda: Number(correnteDemanda.toFixed(1)),
+      correnteDemanda: Number(correnteReal.toFixed(1)),
       fornecimento: fornecimentoCalculado,
       trecho1,
       trecho2,
@@ -170,7 +205,14 @@ export function CardVerificacaoRamal({
       </View>
 
       <TextInput
-        style={[styles.input, { marginBottom: 4 }]}
+        style={[
+          styles.input,
+          { marginBottom: 4 },
+          potenciaOriginal > 0 && {
+            backgroundColor: "#e5e7eb",
+            color: "#6b7280",
+          },
+        ]}
         keyboardType="numeric"
         value={potenciaEditavel}
         onChangeText={(txt) => {
@@ -178,7 +220,23 @@ export function CardVerificacaoRamal({
           onToggleReserva(false);
         }}
         placeholder="Ex: 15000"
+        editable={potenciaOriginal === 0}
       />
+
+      {potenciaOriginal > 0 && (
+        <Text
+          style={{
+            fontSize: 11,
+            color: "#ef4444",
+            marginBottom: 12,
+            marginTop: 2,
+            fontStyle: "italic",
+          }}
+        >
+          🔒 Campo bloqueado. O projeto já possui Cômodos/TUEs. O cálculo é
+          feito automaticamente pela NBR 5410.
+        </Text>
+      )}
 
       {obrigatorioTrifasico && (
         <View style={styles.alertaBloqueioBotoes}>
@@ -266,7 +324,6 @@ export function CardVerificacaoRamal({
             {resultadosLocal.correnteDemanda} A)
           </Text>
 
-          {/* 💡 CORREÇÃO: Esconde o alerta vermelho caso seja Apartamento */}
           {resultadosLocal.cargaInstaladaConsiderada >= 25000 &&
             tipoImovel !== "Apartamento" && (
               <View style={styles.alertaTrifasico}>
