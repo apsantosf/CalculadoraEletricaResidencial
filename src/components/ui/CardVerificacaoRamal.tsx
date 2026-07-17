@@ -40,8 +40,7 @@ export function CardVerificacaoRamal({
 
   const potAtual = parseFloat(potenciaEditavel) || 0;
 
-  const obrigatorioTrifasico =
-    tipoImovel !== "Apartamento" && potAtual >= 25000;
+  const obrigatorioTrifasico = potAtual >= 25000;
 
   useEffect(() => {
     if (potenciaTotal > 0) {
@@ -95,17 +94,10 @@ export function CardVerificacaoRamal({
       sistemaDistribuicao,
     );
 
-    // 💡 A MÁGICA ENTRA AQUI: Separamos as regras visualmente sem tocar no motor principal!
-    if (tipoImovel === "Apartamento") {
-      // O prédio aguenta o balanço. Permitimos Bifásico até 125A.
-      if (disjTeste > 40 && disjTeste <= 125) {
-        fornecimentoCalculado = "Bifásico (2 Polos)";
-      }
-    } else {
-      // Casas respeitam a regra dura do poste (passou de 70A ou 25000 VA = Trifásico)
-      if (disjTeste > 70 || potBrutaAlvo >= 25000) {
-        fornecimentoCalculado = "Trifásico (3 Polos)";
-      }
+    // 💡 REGRA UNIFICADA: Segue o motor do QDC.
+    // Passou de 70A ou de 25.000 VA, é Trifásico para TODO MUNDO (Casa ou Apto).
+    if (disjTeste > 70 || potBrutaAlvo >= 25000) {
+      fornecimentoCalculado = "Trifásico (3 Polos)";
     }
 
     // 💡 PASSO 2: Dividir a Corrente com base no fornecimento ajustado
