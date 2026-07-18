@@ -43,7 +43,7 @@ example
 /android
 
 # Documentacao e backups locais
-/documentacao
+/Documentação
 
 # Binarios gerados de build Android
 *.apk

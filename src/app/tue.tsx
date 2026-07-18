@@ -167,7 +167,7 @@ export default function TelaTues() {
               </View>
             )}
 
-            <Text style={styles.tituloLista}>📋 Relação de Cômodos e TUEs</Text>
+            <Text style={styles.tituloLista}>📋 Relação de TUEs</Text>
             {tuesOrdenados.length === 0 && (
               <Text
                 style={{ textAlign: "center", color: "#6b7280", marginTop: 20 }}
