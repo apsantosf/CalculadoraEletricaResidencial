@@ -1,7 +1,8 @@
 // src/app/index.tsx
+import { Picker } from "@react-native-picker/picker";
 import { useEffect } from "react";
 import {
-  Linking, // 💡 Importação necessária para abrir o link
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,11 +25,24 @@ export default function ScreenInicio() {
     setTipoImovel,
   } = useData();
 
+  // 💡 Lista ordenada alfabeticamente de forma automática
+  const listaDistribuidoras = [
+    "CPFL",
+    "ENEL",
+    "NEOENERGIA",
+    "EDP",
+    "CEMIG",
+    "COPEL",
+    "LIGHT",
+    "ENERGISA",
+    "CELESC",
+    "EQUATORIAL",
+  ].sort((a, b) => a.localeCompare(b));
+
   useEffect(() => {
     checarAtualizacao();
   }, []);
 
-  // 💡 A função do manual agora vive aqui!
   const handleAbrirManual = () => {
     Linking.openURL(
       "https://drive.google.com/file/d/1aotS8GKZ92lalZR4whRGmYnAYFEB0Yxl/view?usp=sharing",
@@ -167,27 +181,39 @@ export default function ScreenInicio() {
 
         {/* Bloco 4: Distribuidora */}
         <View style={styles.cardConfig}>
-          <Text style={styles.labelSecao}>Distribuidora de Energia</Text>
-          <View style={styles.rowGrid}>
-            {["CPFL", "Enel", "Neoenergia", "EDP"].map((dist) => (
-              <TouchableOpacity
-                key={dist}
-                style={[
-                  styles.botaoMini,
-                  distribuidora === dist && styles.botaoAtivo,
-                ]}
-                onPress={() => setDistribuidora(dist)}
-              >
-                <Text
-                  style={[
-                    styles.textoBotao,
-                    distribuidora === dist && styles.textoAtivo,
-                  ]}
-                >
-                  {dist}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={styles.labelSecao}>
+            Distribuidora de Energia (Norma)
+          </Text>
+
+          {/* 💡 A caixa do Picker agora muda para azul se houver escolha */}
+          <View
+            style={[
+              styles.pickerContainer,
+              distribuidora ? styles.botaoAtivo : null,
+            ]}
+          >
+            <Picker
+              selectedValue={distribuidora}
+              onValueChange={(itemValue) => setDistribuidora(itemValue)}
+              style={[
+                styles.picker,
+                distribuidora ? styles.textoAtivo : null, // 💡 Texto fica branco
+              ]}
+            >
+              <Picker.Item
+                label="Selecione uma Distribuidora"
+                value=""
+                color="#6b7280"
+              />
+              {listaDistribuidoras.map((dist) => (
+                <Picker.Item
+                  key={dist}
+                  label={dist}
+                  value={dist}
+                  color="#374151"
+                />
+              ))}
+            </Picker>
           </View>
         </View>
       </ScrollView>
@@ -205,20 +231,15 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // 💡 Estilos do botão de Manual
   botaoManual: {
-    backgroundColor: "#8b5cf6", // Cor roxa para destacar
+    backgroundColor: "#8b5cf6",
     padding: 14,
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 16,
     elevation: 2,
   },
-  textoBotaoManual: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  textoBotaoManual: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
 
   cardConfig: {
     backgroundColor: "#fff",
@@ -235,11 +256,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   rowBotoes: { flexDirection: "row", justifyContent: "space-between" },
-  rowGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-  },
   botaoOpcao: {
     flex: 1,
     backgroundColor: "#f9fafb",
@@ -250,17 +266,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 4,
   },
-  botaoMini: {
-    width: "23%",
-    backgroundColor: "#f9fafb",
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 8,
-  },
   botaoAtivo: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
   textoBotao: { fontSize: 13, fontWeight: "600", color: "#4b5563" },
   textoAtivo: { color: "#fff" },
+
+  pickerContainer: {
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+    backgroundColor: "transparent",
+    color: "#4b5563",
+    borderWidth: 0,
+  },
 });

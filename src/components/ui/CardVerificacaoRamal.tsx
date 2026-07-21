@@ -32,7 +32,8 @@ export function CardVerificacaoRamal({
   onToggleReserva,
   onCalcularRamal,
 }: CardVerificacaoRamalProps) {
-  const { sistemaDistribuicao, tipoImovel } = useData();
+  // 💡 1. Puxamos a distribuidora escolhida pelo utilizador
+  const { sistemaDistribuicao, tipoImovel, distribuidora } = useData();
   const [distanciaExterna, setDistanciaExterna] = useState("");
   const [distanciaInterna, setDistanciaInterna] = useState("");
   const [potenciaEditavel, setPotenciaEditavel] = useState("");
@@ -40,7 +41,18 @@ export function CardVerificacaoRamal({
 
   const potAtual = parseFloat(potenciaEditavel) || 0;
 
-  const obrigatorioTrifasico = potAtual >= 25000;
+  // 💡 2. MÁGICA VISUAL: Identifica o limite da concessionária para a interface
+  const getLimiteBifasico = (dist: string) => {
+    if (["CEMIG", "COPEL", "LIGHT", "CELESC"].includes(dist)) return 15000;
+    if (["ENERGISA", "EQUATORIAL"].includes(dist)) return 20000;
+    return 25000; // Padrão CPFL, Enel, Neoenergia, EDP
+  };
+
+  const distAtual = distribuidora || "CPFL";
+  const limiteBifasico = getLimiteBifasico(distAtual);
+
+  // Agora o bloqueio visual respeita o limite regional!
+  const obrigatorioTrifasico = potAtual > limiteBifasico;
 
   useEffect(() => {
     if (potenciaTotal > 0) {
@@ -57,7 +69,7 @@ export function CardVerificacaoRamal({
     if (resultadosLocal) {
       handleCalcular();
     }
-  }, [sistemaDistribuicao, tensaoGeral, tipoImovel]);
+  }, [sistemaDistribuicao, tensaoGeral, tipoImovel, distribuidora]); // Recalcula se mudar a distribuidora
 
   const handleCalcular = () => {
     const potBrutaAlvo = parseFloat(potenciaEditavel);
@@ -81,26 +93,28 @@ export function CardVerificacaoRamal({
       return;
     }
 
-    // 💡 PASSO 1: Descobrir o disjuntor base
     const correnteBruta = potBrutaAlvo / tensaoGeral;
     const disjuntoresTeste = [
       10, 16, 20, 25, 32, 40, 50, 63, 70, 80, 100, 125, 150, 175, 200,
     ];
     let disjTeste = disjuntoresTeste.find((d) => d >= correnteBruta) || 200;
 
+    // 💡 3. Passamos a distribuidora para o motor matemático
     let fornecimentoCalculado = determinarTipoFornecimento(
       disjTeste,
       tensaoGeral,
       sistemaDistribuicao,
+      distAtual,
     );
 
-    // 💡 REGRA UNIFICADA: Segue o motor do QDC.
-    // Passou de 70A ou de 25.000 VA, é Trifásico para TODO MUNDO (Casa ou Apto).
-    if (disjTeste > 70 || potBrutaAlvo >= 25000) {
+    // Garante que o rótulo visual acompanha o limite matemático
+    if (
+      fornecimentoCalculado.includes("Trifásico") ||
+      potBrutaAlvo > limiteBifasico
+    ) {
       fornecimentoCalculado = "Trifásico (3 Polos)";
     }
 
-    // 💡 PASSO 2: Dividir a Corrente com base no fornecimento ajustado
     let correnteReal = correnteBruta;
     const ehTrifasico = fornecimentoCalculado.includes("Trifásico");
     const ehBifasico = fornecimentoCalculado.includes("Bifásico");
@@ -118,7 +132,7 @@ export function CardVerificacaoRamal({
       correnteReal = potBrutaAlvo / divisor;
     }
 
-    // 💡 PASSO 3: Rodar o motor original para os cabos e disjuntores finais
+    // 💡 4. Motor de dimensionamento do ramal agora lê a distribuidora
     const trecho1 =
       tipoImovel === "Casa"
         ? processarTrechoRamal(
@@ -127,6 +141,7 @@ export function CardVerificacaoRamal({
             tensaoGeral,
             10,
             sistemaDistribuicao,
+            distAtual,
           )
         : null;
 
@@ -136,9 +151,9 @@ export function CardVerificacaoRamal({
       tensaoGeral,
       4,
       sistemaDistribuicao,
+      distAtual,
     );
 
-    // Força o rótulo visual correto para não confundir o utilizador
     if (trecho1) trecho1.classificacao = fornecimentoCalculado;
     if (trecho2) trecho2.classificacao = fornecimentoCalculado;
 
@@ -230,11 +245,13 @@ export function CardVerificacaoRamal({
         </Text>
       )}
 
+      {/* 💡 Alerta de bloqueio atualizado para mostrar o número exato da concessionária */}
       {obrigatorioTrifasico && (
         <View style={styles.alertaBloqueioBotoes}>
           <Text style={styles.textoAlertaBloqueio}>
             ⚠️ Sistema travado em modo Trifásico. A carga instalada atual já
-            atingiu ou superou o limite regulamentar de 25.000 VA.
+            atingiu ou superou o limite regulamentar de{" "}
+            {limiteBifasico.toLocaleString("pt-BR")} VA da {distAtual}.
           </Text>
         </View>
       )}
@@ -316,7 +333,8 @@ export function CardVerificacaoRamal({
             {resultadosLocal.correnteDemanda} A)
           </Text>
 
-          {resultadosLocal.cargaInstaladaConsiderada >= 25000 &&
+          {/* 💡 Alerta Trifásico atualizado com o limite dinâmico */}
+          {resultadosLocal.cargaInstaladaConsiderada > limiteBifasico &&
             tipoImovel !== "Apartamento" && (
               <View style={styles.alertaTrifasico}>
                 <Text style={styles.alertaTrifasicoTitulo}>
@@ -325,10 +343,11 @@ export function CardVerificacaoRamal({
                 <Text style={styles.alertaTrifasicoTexto}>
                   A Carga Instalada (Potência Bruta) do projeto atingiu{" "}
                   {resultadosLocal.cargaInstaladaConsiderada} VA, ultrapassando
-                  o limite de 25.000 VA. Pelas normas da concessionária,
-                  torna-se obrigatória a transição para um fornecimento
-                  Trifásico. O sistema não pode operar sob rede Bifásica neste
-                  nível de potência.
+                  o limite de {limiteBifasico.toLocaleString("pt-BR")} VA
+                  estabelecido pela {distAtual}. Pelas normas, torna-se
+                  obrigatória a transição para um fornecimento Trifásico. O
+                  sistema não pode operar sob rede Bifásica neste nível de
+                  potência.
                 </Text>
               </View>
             )}

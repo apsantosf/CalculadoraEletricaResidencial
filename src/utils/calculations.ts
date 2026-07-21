@@ -20,6 +20,78 @@ export const tabelaCondutores: Condutor[] = [
   { bitola: 120, capacidadeCorrente: 239 },
 ];
 
+// 💡 Dicionário de Regras Regionais (Padrão de Entrada)
+const REGRA_DISTRIBUIDORA: Record<
+  string,
+  {
+    limiteMonoVA: number;
+    limiteBiVA: number;
+    disjuntorMaxMono: number;
+    disjuntorMaxBi: number;
+  }
+> = {
+  CPFL: {
+    limiteMonoVA: 12000,
+    limiteBiVA: 25000,
+    disjuntorMaxMono: 50,
+    disjuntorMaxBi: 70,
+  },
+  Enel: {
+    limiteMonoVA: 12000,
+    limiteBiVA: 25000,
+    disjuntorMaxMono: 50,
+    disjuntorMaxBi: 70,
+  },
+  EDP: {
+    limiteMonoVA: 12000,
+    limiteBiVA: 25000,
+    disjuntorMaxMono: 50,
+    disjuntorMaxBi: 70,
+  },
+  Neoenergia: {
+    limiteMonoVA: 15000,
+    limiteBiVA: 25000,
+    disjuntorMaxMono: 63,
+    disjuntorMaxBi: 70,
+  },
+  CEMIG: {
+    limiteMonoVA: 10000,
+    limiteBiVA: 15000,
+    disjuntorMaxMono: 40,
+    disjuntorMaxBi: 63,
+  },
+  COPEL: {
+    limiteMonoVA: 10000,
+    limiteBiVA: 15000,
+    disjuntorMaxMono: 40,
+    disjuntorMaxBi: 63,
+  },
+  LIGHT: {
+    limiteMonoVA: 10000,
+    limiteBiVA: 15000,
+    disjuntorMaxMono: 40,
+    disjuntorMaxBi: 63,
+  },
+  CELESC: {
+    limiteMonoVA: 15000,
+    limiteBiVA: 15000,
+    disjuntorMaxMono: 70,
+    disjuntorMaxBi: 0,
+  },
+  ENERGISA: {
+    limiteMonoVA: 12000,
+    limiteBiVA: 20000,
+    disjuntorMaxMono: 50,
+    disjuntorMaxBi: 70,
+  },
+  EQUATORIAL: {
+    limiteMonoVA: 12000,
+    limiteBiVA: 20000,
+    disjuntorMaxMono: 50,
+    disjuntorMaxBi: 70,
+  },
+};
+
 export const obterFatorDemandaGeral = (potenciaWatts: number): number => {
   if (potenciaWatts <= 1000) return 0.86;
   if (potenciaWatts <= 2000) return 0.75;
@@ -58,21 +130,28 @@ export const determinarTipoFornecimento = (
   disjuntorGeral: number,
   tensaoSelecionada: number,
   sistemaDistribuicao: string,
+  distribuidora: string = "CPFL",
 ): string => {
+  const regras =
+    REGRA_DISTRIBUIDORA[distribuidora] || REGRA_DISTRIBUIDORA["CPFL"];
+
   if (sistemaDistribuicao === "127/220V") {
     if (tensaoSelecionada === 220) {
-      if (disjuntorGeral <= 70) return "Bifásico (2 Polos)";
+      if (disjuntorGeral <= regras.disjuntorMaxBi) return "Bifásico (2 Polos)";
       return "Trifásico (3 Polos)";
     }
-    if (disjuntorGeral <= 40) return "Monofásico (1 Polo)";
-    if (disjuntorGeral > 40 && disjuntorGeral <= 70)
+    if (disjuntorGeral <= regras.disjuntorMaxMono) return "Monofásico (1 Polo)";
+    if (
+      disjuntorGeral > regras.disjuntorMaxMono &&
+      disjuntorGeral <= regras.disjuntorMaxBi
+    )
       return "Bifásico (2 Polos)";
     return "Trifásico (3 Polos)";
   }
 
   if (sistemaDistribuicao === "220/380V") {
-    if (disjuntorGeral <= 40) return "Monofásico (1 Polo)";
-    if (disjuntorGeral > 40 && disjuntorGeral <= 70)
+    if (disjuntorGeral <= regras.disjuntorMaxMono) return "Monofásico (1 Polo)";
+    if (regras.disjuntorMaxBi > 0 && disjuntorGeral <= regras.disjuntorMaxBi)
       return "Bifásico (2 Polos)";
     return "Trifásico (3 Polos)";
   }
@@ -112,26 +191,38 @@ export const sugerirBitolaPorQueda = (
   return bitolaIdeal || cabosPossiveis[cabosPossiveis.length - 1];
 };
 
+// 💡 CORREÇÃO DO BUG DA DISTÂNCIA ZERO: Agora o cálculo flui mesmo sem distância preenchida
 export const processarTrechoRamal = (
   distancia: number,
   corrente: number,
   tensao: number,
   caboMinimo: number,
   sistemaDistribuicao: string,
+  distribuidora: string = "CPFL",
 ) => {
-  if (distancia <= 0 || corrente <= 0)
+  if (corrente <= 0)
     return { bitola: caboMinimo, disjuntor: 0, classificacao: "N/A" };
 
-  const calculo = sugerirBitolaPorQueda(distancia, corrente, tensao);
+  // Garante que não ocorrem falhas matemáticas se a distância for nula
+  const distSegura = isNaN(distancia) || distancia < 0 ? 0 : distancia;
+
+  const calculo = sugerirBitolaPorQueda(distSegura, corrente, tensao);
   const bitolaAjustada = Math.max(calculo.bitola, caboMinimo);
+
+  // Encontra a capacidade do cabo que foi efetivamente escolhido
+  const caboFinalInfo =
+    tabelaCondutores.find((c) => c.bitola === bitolaAjustada) || calculo;
+
   const disjuntor = encontrarDisjuntorComercial(
     corrente,
-    calculo.capacidadeCorrente,
+    caboFinalInfo.capacidadeCorrente,
   );
+
   const classificacao = determinarTipoFornecimento(
     disjuntor,
     tensao,
     sistemaDistribuicao,
+    distribuidora,
   );
 
   return {
@@ -213,24 +304,47 @@ export const dimensionarTUE = (
   };
 };
 
+// 💡 SINCRONIA: Motor verifica o limite de VA e o limite de Amperes da Distribuidora
 export const calcularAlimentadorGeral = (dados: {
   potenciaIlumTugVA: number;
   potenciasTueWatts: number[];
   tensao: number;
   forcarTrifasico?: boolean;
+  distribuidora?: string;
 }) => {
-  // 💡 A função agora apenas soma os valores EXATOS que recebe, sem aplicar descontos fantasmas!
+  const dist = dados.distribuidora || "CPFL";
+  const regras = REGRA_DISTRIBUIDORA[dist] || REGRA_DISTRIBUIDORA["CPFL"];
+
   const somaTues = dados.potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
   const potenciaTotalVA = dados.potenciaIlumTugVA + somaTues;
 
+  // Descobre qual seria a corrente e o disjuntor se não existisse limite
+  const correnteTeste = potenciaTotalVA / dados.tensao;
+  let disjTeste = 250;
+  for (const c of tabelaCondutores) {
+    if (c.bitola >= 6.0 && c.capacidadeCorrente >= correnteTeste) {
+      disjTeste = encontrarDisjuntorComercial(
+        correnteTeste,
+        c.capacidadeCorrente,
+      );
+      break;
+    }
+  }
+
+  // Verifica se violou as regras da Concessionária (VA ou Disjuntor Máximo)
+  const estourouVA = potenciaTotalVA > regras.limiteBiVA;
+  const estourouDisjuntor =
+    regras.disjuntorMaxBi > 0 && disjTeste > regras.disjuntorMaxBi;
+
+  const ehTrifasico = dados.forcarTrifasico || estourouVA || estourouDisjuntor;
+
   let correnteGeral = 0;
-  const ehTrifasico = dados.forcarTrifasico || potenciaTotalVA > 25000;
 
   if (ehTrifasico) {
     const tensaoLinha = dados.tensao === 127 ? 220 : dados.tensao;
     correnteGeral = potenciaTotalVA / (tensaoLinha * Math.sqrt(3));
   } else {
-    correnteGeral = potenciaTotalVA / dados.tensao;
+    correnteGeral = correnteTeste;
   }
 
   let caboIdeal = tabelaCondutores[tabelaCondutores.length - 1];
