@@ -3,6 +3,7 @@ import { Picker } from "@react-native-picker/picker";
 import { useEffect } from "react";
 import {
   Linking,
+  Platform, // 💡 Adicionado para detetar se estamos na Web ou Celular
   ScrollView,
   StyleSheet,
   Text,
@@ -25,11 +26,10 @@ export default function ScreenInicio() {
     setTipoImovel,
   } = useData();
 
-  // 💡 Lista ordenada alfabeticamente de forma automática
   const listaDistribuidoras = [
     "CPFL",
-    "ENEL",
-    "NEOENERGIA",
+    "Enel",
+    "Neoenergia",
     "EDP",
     "CEMIG",
     "COPEL",
@@ -185,7 +185,6 @@ export default function ScreenInicio() {
             Distribuidora de Energia (Norma)
           </Text>
 
-          {/* 💡 A caixa do Picker agora muda para azul se houver escolha */}
           <View
             style={[
               styles.pickerContainer,
@@ -195,22 +194,28 @@ export default function ScreenInicio() {
             <Picker
               selectedValue={distribuidora}
               onValueChange={(itemValue) => setDistribuidora(itemValue)}
-              style={[
-                styles.picker,
-                distribuidora ? styles.textoAtivo : null, // 💡 Texto fica branco
-              ]}
+              style={[styles.picker, distribuidora ? styles.textoAtivo : null]}
+              dropdownIconColor={distribuidora ? "#ffffff" : "#6b7280"}
             >
               <Picker.Item
                 label="Selecione uma Distribuidora"
                 value=""
-                color="#6b7280"
+                color={Platform.OS === "web" ? "#6b7280" : undefined}
               />
+
               {listaDistribuidoras.map((dist) => (
                 <Picker.Item
                   key={dist}
                   label={dist}
                   value={dist}
-                  color="#374151"
+                  /* 💡 A mágica acontece aqui: Web ganha cor fixa, Mobile fica livre */
+                  color={
+                    distribuidora === dist
+                      ? "#2563eb"
+                      : Platform.OS === "web"
+                        ? "#374151"
+                        : undefined
+                  }
                 />
               ))}
             </Picker>
