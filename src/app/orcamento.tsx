@@ -2,7 +2,9 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import * as Print from "expo-print"; // 💡 Importação para o PDF
 import { useFocusEffect } from "expo-router";
+import * as Sharing from "expo-sharing"; // 💡 Importação para o PDF
 import { useCallback, useState } from "react";
 import {
   Alert,
@@ -22,11 +24,33 @@ import { obterPrecosLocais, salvarPrecosLocais } from "../utils/storagePrecos";
 
 const CHAVE_CARRINHO = "@EletricaResidencial_Carrinho_V1";
 const CHAVE_CIDADE = "@EletricaResidencial_Cidade";
-// 💡 Lendo a nova chave gravada pelo Quadro
 const CHAVE_DADOS_RAMAL = "@EletricaResidencial_DadosRamal";
+const CHAVE_PROTECAO = "@EletricaResidencial_Protecao";
+
+const obterDimensionamentoCircuito = (
+  tipo: string,
+  potenciaTotal: number,
+  tensao: number,
+) => {
+  const corrente = potenciaTotal / tensao;
+  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
+  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
+
+  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
+  let disj = disjuntores.find((d) => d >= corrente) || 100;
+  let cabo = "2.5";
+  if (disj > 20 && disj <= 25) cabo = "4";
+  else if (disj > 25 && disj <= 32) cabo = "6";
+  else if (disj > 32 && disj <= 40) cabo = "10";
+  else if (disj > 40 && disj <= 50) cabo = "10";
+  else if (disj > 50 && disj <= 63) cabo = "16";
+  else if (disj > 63) cabo = "25";
+
+  return { cabo, disj };
+};
 
 export default function ScreenOrcamento() {
-  const { comodos } = useData();
+  const { comodos, sistemaDistribuicao, tensaoGeral } = useData();
 
   const [quantidades, setQuantidades] = useState<Record<string, number>>({});
   const [tabelaPrecos, setTabelaPrecos] =
@@ -101,14 +125,13 @@ export default function ScreenOrcamento() {
   useFocusEffect(
     useCallback(() => {
       const inicializarBD = async () => {
-        const precos = await obterPrecosLocais();
-        setTabelaPrecos(precos);
+        const precosBase = await obterPrecosLocais();
+        let novosPrecosDinâmicos = [...precosBase];
 
         const cidadeSalva = await AsyncStorage.getItem(CHAVE_CIDADE);
         if (cidadeSalva) setCidade(cidadeSalva);
         else await buscarLocalizacao(false);
 
-        // 💡 Lê diretamente a inteligência e cálculo exato gravado pelo Quadro
         const dadosRamalSalvo = await AsyncStorage.getItem(CHAVE_DADOS_RAMAL);
         let dadosRamal: { idCabo: string; metragem: number } | null = null;
         if (dadosRamalSalvo) {
@@ -118,34 +141,118 @@ export default function ScreenOrcamento() {
         let qtdTug = 0;
         let qtdTue = 0;
         let qtdInterruptores = 0;
+        let temIluminacao = false;
+        let disjuntoresDinamicos: Record<string, number> = {};
+
+        const sys220_380 = sistemaDistribuicao === "220/380V";
+        const voltsGeral = tensaoGeral || 220;
 
         comodos.forEach((comodo) => {
           qtdInterruptores += 1;
           comodo.dispositivos.forEach((disp) => {
             const qtd = disp.quantidade || 1;
-            const tipo = disp.tipo?.toLowerCase();
+            const tipo = disp.tipo?.toLowerCase() || "tug";
 
             if (tipo === "tug") qtdTug += qtd;
             if (tipo === "tue") qtdTue += qtd;
+            if (tipo === "iluminacao") temIluminacao = true;
+
+            const potTotal = disp.potencia * qtd;
+            let potVA = potTotal;
+            if (tipo === "tue") {
+              const fp = disp.nome.toLowerCase().includes("chuveiro")
+                ? 1.0
+                : 0.85;
+              potVA = potTotal / fp;
+            }
+
+            const dim = obterDimensionamentoCircuito(tipo, potVA, tensaoGeral);
+            const amperagem = dim.disj;
+
+            let isBipolar = false;
+            if (tipo === "tue") {
+              if (!sys220_380) isBipolar = true;
+            } else {
+              if (voltsGeral === 220 && !sys220_380) {
+                isBipolar = true;
+              }
+            }
+
+            const baseId = isBipolar ? "disj_bi" : "disj_mono";
+            const dynamicId = `${baseId}_${amperagem}a`;
+
+            disjuntoresDinamicos[dynamicId] =
+              (disjuntoresDinamicos[dynamicId] || 0) + 1;
+
+            if (!novosPrecosDinâmicos.find((p) => p.id === dynamicId)) {
+              const baseItem = novosPrecosDinâmicos.find(
+                (p) => p.id === baseId,
+              );
+              if (baseItem) {
+                novosPrecosDinâmicos.push({
+                  ...baseItem,
+                  id: dynamicId,
+                  nome: `${baseItem.nome} - ${amperagem}A`,
+                });
+              }
+            }
           });
         });
 
         let quantidadesAtuais: Record<string, number> = {};
         const carrinhoSalvo = await AsyncStorage.getItem(CHAVE_CARRINHO);
 
-        if (carrinhoSalvo) {
-          quantidadesAtuais = JSON.parse(carrinhoSalvo);
+        if (comodos.length === 0) {
+          quantidadesAtuais = {};
+          await AsyncStorage.removeItem(CHAVE_CARRINHO);
+          await AsyncStorage.removeItem(CHAVE_DADOS_RAMAL);
+          await AsyncStorage.removeItem(CHAVE_PROTECAO);
         } else {
-          quantidadesAtuais = {
-            tomada_10a: qtdTug,
-            tomada_20a: qtdTue,
-            interruptor_simples: qtdInterruptores,
-            cabo_2_5: 1,
-            cabo_1_5: 1,
-          };
+          if (carrinhoSalvo) {
+            quantidadesAtuais = JSON.parse(carrinhoSalvo);
+          }
+
+          if (qtdTug > 0)
+            quantidadesAtuais["tomada_10a"] = Math.max(
+              quantidadesAtuais["tomada_10a"] || 0,
+              qtdTug,
+            );
+          if (qtdTue > 0)
+            quantidadesAtuais["tomada_20a"] = Math.max(
+              quantidadesAtuais["tomada_20a"] || 0,
+              qtdTue,
+            );
+          if (qtdInterruptores > 0)
+            quantidadesAtuais["interruptor_simples"] = Math.max(
+              quantidadesAtuais["interruptor_simples"] || 0,
+              qtdInterruptores,
+            );
+          if (temIluminacao)
+            quantidadesAtuais["cabo_1_5"] = Math.max(
+              quantidadesAtuais["cabo_1_5"] || 0,
+              1,
+            );
+          if (qtdTug > 0 || qtdTue > 0)
+            quantidadesAtuais["cabo_2_5"] = Math.max(
+              quantidadesAtuais["cabo_2_5"] || 0,
+              1,
+            );
+
+          Object.keys(quantidadesAtuais).forEach((key) => {
+            if (
+              key.startsWith("disj_mono") ||
+              key.startsWith("disj_bi") ||
+              key.startsWith("disj_tri")
+            ) {
+              delete quantidadesAtuais[key];
+            }
+          });
+
+          Object.entries(disjuntoresDinamicos).forEach(([id, qtd]) => {
+            quantidadesAtuais[id] = qtd;
+          });
         }
 
-        // 💡 Limpeza rigorosa em todos os possíveis tamanhos de cabo geral da nossa tabela
         const possiveisCabos = [
           "cabo_4_0",
           "cabo_6_0",
@@ -157,11 +264,86 @@ export default function ScreenOrcamento() {
         ];
         possiveisCabos.forEach((cabo) => delete quantidadesAtuais[cabo]);
 
-        // 💡 Apenas consome o dado exato do Quadro e insere na lista, sem pensar/calcular!
         if (dadosRamal && dadosRamal.metragem > 0 && dadosRamal.idCabo) {
-          quantidadesAtuais[dadosRamal.idCabo] = dadosRamal.metragem;
+          const caboNaTabela = novosPrecosDinâmicos.find(
+            (p) => p.id === dadosRamal?.idCabo,
+          );
+          let quantidadeFinal = dadosRamal.metragem;
+
+          if (caboNaTabela && caboNaTabela.medida === "rolo") {
+            quantidadeFinal = Math.ceil(dadosRamal.metragem / 100);
+          }
+
+          quantidadesAtuais[dadosRamal.idCabo] = quantidadeFinal;
         }
 
+        const protecaoSalva = await AsyncStorage.getItem(CHAVE_PROTECAO);
+
+        Object.keys(quantidadesAtuais).forEach((key) => {
+          if (key.startsWith("idr_")) {
+            delete quantidadesAtuais[key];
+          }
+        });
+        delete quantidadesAtuais["dps_275v"];
+
+        if (protecaoSalva) {
+          const protecao = JSON.parse(protecaoSalva);
+
+          if (protecao.idr) {
+            const baseIdrId = protecao.idr.id;
+            const idrAmp = protecao.idr.amp;
+
+            if (idrAmp) {
+              const dynamicIdrId = `${baseIdrId}_${idrAmp}a`;
+
+              if (!novosPrecosDinâmicos.find((p) => p.id === dynamicIdrId)) {
+                const baseIdrItem = novosPrecosDinâmicos.find(
+                  (p) => p.id === baseIdrId,
+                );
+                if (baseIdrItem) {
+                  novosPrecosDinâmicos.push({
+                    ...baseIdrItem,
+                    id: dynamicIdrId,
+                    nome: `${baseIdrItem.nome} - ${idrAmp}A (30mA)`,
+                  });
+                }
+              }
+              quantidadesAtuais[dynamicIdrId] = protecao.idr.qtd;
+            } else {
+              quantidadesAtuais[baseIdrId] = protecao.idr.qtd;
+            }
+          }
+          if (protecao.dps) {
+            quantidadesAtuais[protecao.dps.id] = protecao.dps.qtd;
+          }
+
+          const processarDisjuntorGeral = (disjData: any) => {
+            if (!disjData) return;
+            const baseId = disjData.id;
+            const amp = disjData.amp;
+            const dynamicId = `${baseId}_${amp}a`;
+
+            if (!novosPrecosDinâmicos.find((p) => p.id === dynamicId)) {
+              const baseItem = novosPrecosDinâmicos.find(
+                (p) => p.id === baseId,
+              );
+              if (baseItem) {
+                novosPrecosDinâmicos.push({
+                  ...baseItem,
+                  id: dynamicId,
+                  nome: `${baseItem.nome} - ${amp}A`,
+                });
+              }
+            }
+            quantidadesAtuais[dynamicId] =
+              (quantidadesAtuais[dynamicId] || 0) + 1;
+          };
+
+          processarDisjuntorGeral(protecao.disjQDC);
+          processarDisjuntorGeral(protecao.disjMedidor);
+        }
+
+        setTabelaPrecos(novosPrecosDinâmicos);
         setQuantidades(quantidadesAtuais);
         await AsyncStorage.setItem(
           CHAVE_CARRINHO,
@@ -170,7 +352,7 @@ export default function ScreenOrcamento() {
       };
 
       inicializarBD();
-    }, [comodos]),
+    }, [comodos, sistemaDistribuicao, tensaoGeral]),
   );
 
   const atualizarQuantidade = async (id: string, valor: string) => {
@@ -226,6 +408,102 @@ export default function ScreenOrcamento() {
       Alert.alert(
         "Sucesso",
         "Tabela de preços e localidade atualizados com sucesso!",
+      );
+    }
+  };
+
+  // 💡 LÓGICA NOVA: Gerar PDF da Lista de Compras
+  const handleGerarPDFOrcamento = async () => {
+    let linhasTabela = "";
+    materiaisVisiveis.forEach((item) => {
+      const qtdAtual = quantidades[item.id] || 0;
+      const subtotal = qtdAtual * item.precoMedio;
+      const sufixo =
+        item.medida === "rolo" ? "cx" : item.medida === "metro" ? "m" : "un";
+
+      linhasTabela += `
+        <tr>
+          <td>${item.nome}</td>
+          <td style="text-align: center;">${qtdAtual} ${sufixo}</td>
+          <td style="text-align: right;">R$ ${item.precoMedio.toFixed(2).replace(".", ",")}</td>
+          <td style="text-align: right; font-weight: bold; color: #059669;">R$ ${subtotal.toFixed(2).replace(".", ",")}</td>
+        </tr>
+      `;
+    });
+
+    const localAtual =
+      cidade === "Padrão Nacional" ? "Padrão Nacional" : cidade;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Lista de Materiais - Elétrica Residencial</title>
+        <style>
+          body { font-family: 'Arial', sans-serif; color: #333; line-height: 1.3; margin: 20mm 15mm; font-size: 11pt; }
+          .header-bg { background-color: #1e3a8a; color: #fff; padding: 20px; border-radius: 6px; margin-bottom: 20px; text-align: center; }
+          h1 { margin: 0; font-size: 18pt; }
+          p { margin: 5px 0 0 0; font-size: 11pt; opacity: 0.9; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background-color: #f3f4f6; color: #374151; text-align: left; padding: 10px; border-bottom: 2px solid #d1d5db; }
+          td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+          tr:nth-child(even) td { background-color: #f9fafb; }
+          .total-row { background-color: #e0e7ff; font-size: 14pt; font-weight: bold; color: #1e3a8a; }
+          .total-row td { border-top: 2px solid #1e3a8a; }
+        </style>
+      </head>
+      <body>
+        <div class="header-bg">
+          <h1>⚡ LISTA DE MATERIAIS / ORÇAMENTO ⚡</h1>
+          <p>Tabela Base: ${localAtual}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Material / Equipamento</th>
+              <th style="text-align: center;">Quantidade</th>
+              <th style="text-align: right;">Preço Unitário</th>
+              <th style="text-align: right;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasTabela}
+            <tr class="total-row">
+              <td colspan="3" style="text-align: right;">VALOR TOTAL ESTIMADO:</td>
+              <td style="text-align: right;">R$ ${valorTotal.toFixed(2).replace(".", ",")}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="text-align: center; color: #6b7280; font-size: 10pt; margin-top: 30px;">
+          Valores de referência média calculados automaticamente. Os preços podem variar de acordo com as lojas da sua região.
+        </p>
+      </body>
+      </html>
+    `;
+
+    try {
+      if (Platform.OS === "web") {
+        const novaAba = window.open("", "_blank");
+        if (novaAba) {
+          novaAba.document.write(htmlContent);
+          novaAba.document.close();
+          setTimeout(() => novaAba.print(), 500);
+        } else {
+          window.alert("Permita pop-ups no seu navegador para gerar o PDF.");
+        }
+      } else {
+        const result = await Print.printToFileAsync({ html: htmlContent });
+        await Sharing.shareAsync(result.uri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Exportar Lista de Materiais",
+          UTI: "com.adobe.pdf",
+        });
+      }
+    } catch (error) {
+      Alert.alert(
+        "Erro",
+        "Não foi possível gerar o PDF da Lista de Materiais.",
       );
     }
   };
@@ -320,6 +598,15 @@ export default function ScreenOrcamento() {
             </Text>
           </TouchableOpacity>
         )}
+
+        {/* 💡 NOVO BOTÃO: GERAR PDF DO ORÇAMENTO */}
+        <TouchableOpacity
+          style={styles.botaoGerarPdf}
+          onPress={handleGerarPDFOrcamento}
+        >
+          <FontAwesome5 name="file-pdf" size={16} color="#fff" />
+          <Text style={styles.textoBotaoPdf}> Exportar Lista em PDF</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <View style={styles.footerTotal}>
@@ -508,6 +795,24 @@ const styles = StyleSheet.create({
   },
   textoBotaoMostrarMais: { color: "#4f46e5", fontSize: 15, fontWeight: "bold" },
 
+  // 💡 ESTILOS DO NOVO BOTÃO DE PDF
+  botaoGerarPdf: {
+    backgroundColor: "#dc2626",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  textoBotaoPdf: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+
   footerTotal: {
     backgroundColor: "#1e3a8a",
     padding: 16,
@@ -534,6 +839,9 @@ const styles = StyleSheet.create({
     height: "65%",
     padding: 20,
     paddingBottom: 30,
+    maxWidth: 450,
+    width: "100%",
+    alignSelf: "center",
   },
   modalHeader: {
     flexDirection: "row",

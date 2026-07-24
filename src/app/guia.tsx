@@ -1,5 +1,8 @@
+// src/app/telaGuia.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -15,72 +18,106 @@ import {
   obterFatorDemandaGeral,
 } from "../utils/calculations";
 
+const CHAVE_PROTECAO = "@EletricaResidencial_Protecao";
+const CHAVE_RESERVA = "@EletricaResidencial_ReservaAplicada";
+
 export default function TelaGuia() {
   const router = useRouter();
-
-  // 💡 Importamos a distribuidora para deixar a regra completa
   const { comodos, tensaoGeral, distribuidora } = useData();
+
+  const [protecaoSalva, setProtecaoSalva] = useState<any>(null);
+  const [reservaAplicada, setReservaAplicada] = useState(false);
+
+  // 💡 LÓGICA NOVA: O Guia agora lê a inteligência exata do Quadro
+  useFocusEffect(
+    useCallback(() => {
+      const carregarDadosGlobais = async () => {
+        const protecao = await AsyncStorage.getItem(CHAVE_PROTECAO);
+        const reserva = await AsyncStorage.getItem(CHAVE_RESERVA);
+
+        if (protecao) setProtecaoSalva(JSON.parse(protecao));
+        else setProtecaoSalva(null);
+
+        setReservaAplicada(reserva === "true");
+      };
+      carregarDadosGlobais();
+    }, []),
+  );
 
   const projetoTemDados = comodos && comodos.length > 0;
   const voltagem = tensaoGeral || 220;
 
-  // 💡 LÓGICA DE CÁLCULO DINÂMICO DO DISJUNTOR E IDR
   let disjuntorGeralCalculado = 0;
   let idrRecomendado = 0;
+  let dpsRecomendado = 2;
+  let tipoIdr = "Bipolar";
 
   if (projetoTemDados) {
-    let somaIlumTugVA = 0;
-    let listaVATue: number[] = [];
+    // Se o Quadro já calculou e salvou, nós apenas espelhamos com precisão máxima
+    if (protecaoSalva) {
+      disjuntorGeralCalculado = protecaoSalva.disjQDC?.amp || 0;
+      idrRecomendado = protecaoSalva.idr?.amp || 0;
+      tipoIdr =
+        protecaoSalva.idr?.id === "idr_tetrapolar" ? "Tetrapolar" : "Bipolar";
+      dpsRecomendado = protecaoSalva.dps?.qtd || 2;
+    } else {
+      // Fallback de segurança: Caso o usuário não tenha passado pela aba Quadro ainda
+      let somaIlumTugVA = 0;
+      let listaVATue: number[] = [];
+      const fatorMultiplicador = reservaAplicada ? 1.3 : 1.0; // 💡 Agora considera a reserva
 
-    // 1. Somatório das cargas instaladas
-    comodos.forEach((c) => {
-      c.dispositivos.forEach((d) => {
-        let potOriginalVA = d.potencia * d.quantidade;
-        if (d.tipo === "tue") {
-          const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
-          potOriginalVA = potOriginalVA / fp;
-          listaVATue.push(potOriginalVA);
-        } else {
-          somaIlumTugVA += potOriginalVA;
-        }
+      comodos.forEach((c) => {
+        c.dispositivos.forEach((d) => {
+          let potOriginalVA = d.potencia * d.quantidade;
+          if (d.tipo === "tue") {
+            const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
+            potOriginalVA = potOriginalVA / fp;
+          }
+          const potComReserva = potOriginalVA * fatorMultiplicador;
+
+          if (d.tipo === "tue") listaVATue.push(potComReserva);
+          else somaIlumTugVA += potComReserva;
+        });
       });
-    });
 
-    // 2. Aplicando fator de demanda nos TUEs (mesma regra do quadro)
-    let fatorTue = 1.0;
-    if (listaVATue.length === 2) fatorTue = 0.9;
-    else if (listaVATue.length >= 3 && listaVATue.length <= 5) fatorTue = 0.8;
-    else if (listaVATue.length >= 6) fatorTue = 0.7;
-    const tuesComDemanda = listaVATue.map((pot) => Math.round(pot * fatorTue));
+      let fatorTue = 1.0;
+      if (listaVATue.length === 2) fatorTue = 0.9;
+      else if (listaVATue.length >= 3 && listaVATue.length <= 5) fatorTue = 0.8;
+      else if (listaVATue.length >= 6) fatorTue = 0.7;
+      const tuesComDemanda = listaVATue.map((pot) =>
+        Math.round(pot * fatorTue),
+      );
 
-    // 3. Demanda de Iluminação e TUGs
-    const demandaIlumTug = Math.round(
-      somaIlumTugVA * obterFatorDemandaGeral(Math.round(somaIlumTugVA)),
-    );
+      const demandaIlumTug = Math.round(
+        somaIlumTugVA * obterFatorDemandaGeral(Math.round(somaIlumTugVA)),
+      );
 
-    // 4. Verificando necessidade de rede trifásica pelo QDC Interno
-    const resultadoQDC = calcularAlimentadorGeral({
-      potenciaIlumTugVA: Math.round(somaIlumTugVA),
-      potenciasTueWatts: listaVATue.map(Math.round),
-      tensao: tensaoGeral,
-      forcarTrifasico: false,
-    });
+      const resultadoQDC = calcularAlimentadorGeral({
+        potenciaIlumTugVA: Math.round(somaIlumTugVA),
+        potenciasTueWatts: listaVATue.map(Math.round),
+        tensao: tensaoGeral,
+        forcarTrifasico: false,
+      });
 
-    // 5. Cálculo final do Padrão de Entrada
-    const resultadoDemanda = calcularAlimentadorGeral({
-      potenciaIlumTugVA: demandaIlumTug,
-      potenciasTueWatts: tuesComDemanda,
-      tensao: tensaoGeral,
-      forcarTrifasico: resultadoQDC?.ehTrifasico || false,
-    });
+      const resultadoDemanda = calcularAlimentadorGeral({
+        potenciaIlumTugVA: demandaIlumTug,
+        potenciasTueWatts: tuesComDemanda,
+        tensao: tensaoGeral,
+        forcarTrifasico: resultadoQDC?.ehTrifasico || false,
+      });
 
-    disjuntorGeralCalculado = resultadoDemanda?.disjuntorGeral || 0;
-
-    // 6. Encontrando o IDR Comercial adequado (Regra: Nominal IDR >= Disjuntor Geral)
-    const idrsComerciais = [25, 40, 63, 80, 100, 125];
-    idrRecomendado =
-      idrsComerciais.find((idr) => idr >= disjuntorGeralCalculado) ||
-      disjuntorGeralCalculado;
+      disjuntorGeralCalculado = resultadoDemanda?.disjuntorGeral || 0;
+      const idrsComerciais = [25, 40, 63, 80, 100, 125];
+      idrRecomendado =
+        idrsComerciais.find((idr) => idr >= disjuntorGeralCalculado) ||
+        disjuntorGeralCalculado;
+      tipoIdr = resultadoQDC?.ehTrifasico ? "Tetrapolar" : "Bipolar";
+      dpsRecomendado = resultadoQDC?.ehTrifasico
+        ? 4
+        : tensaoGeral === 220
+          ? 3
+          : 2;
+    }
   }
 
   return (
@@ -95,7 +132,6 @@ export default function TelaGuia() {
           Soluções de campo para o eletricista
         </Text>
 
-        {/* SESSÃO 1: Dimensionamento Inteligente */}
         {projetoTemDados && disjuntorGeralCalculado > 0 ? (
           <View style={styles.smartCard}>
             <Text style={styles.cardTitle}>
@@ -106,13 +142,16 @@ export default function TelaGuia() {
               <Text style={styles.bold}>{disjuntorGeralCalculado}A</Text>
             </Text>
             <Text style={styles.cardText}>
-              IDR Recomendado (In):{" "}
-              <Text style={styles.bold}>≥ {idrRecomendado}A</Text>
+              IDR Recomendado:{" "}
+              <Text style={styles.bold}>
+                ≥ {idrRecomendado}A ({tipoIdr})
+              </Text>
             </Text>
             <Text style={styles.cardText}>
-              DPS Recomendado (Uc):{" "}
+              DPS Recomendado:{" "}
               <Text style={styles.bold}>
-                {voltagem <= 127 ? "175V" : "275V"} (Classe II)
+                {dpsRecomendado}x {voltagem <= 127 ? "175V" : "275V"} (Classe
+                II)
               </Text>
             </Text>
           </View>
@@ -125,18 +164,16 @@ export default function TelaGuia() {
               style={{ marginRight: 10 }}
             />
             <Text style={styles.warningText}>
-              Adicione os ambientes na aba "Cômodos" e os equipamentos de alta
-              potência na aba "TUEs" para ver aqui a recomendação ideal de IDR e
+              Adicione os ambientes na aba "Cômodos" e dimensione a
+              "Alimentação" na aba "Quadro" para ver as recomendações de IDR e
               DPS.
             </Text>
           </View>
         )}
 
-        {/* SESSÃO 2: Manuais Visuais */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Situações do Dia a Dia</Text>
 
-          {/* Botão 1: IDR */}
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => router.push("/idr")}
@@ -153,7 +190,6 @@ export default function TelaGuia() {
             </Text>
           </TouchableOpacity>
 
-          {/* Botão 2: DPS */}
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => router.push("/dps")}
@@ -166,7 +202,6 @@ export default function TelaGuia() {
             </Text>
           </TouchableOpacity>
 
-          {/* Botão 3: Retrofit */}
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => router.push("/retrofit")}
@@ -179,7 +214,6 @@ export default function TelaGuia() {
             </Text>
           </TouchableOpacity>
 
-          {/* Botão 4: Galeria Visual */}
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => router.push("/galeria")}
@@ -198,11 +232,7 @@ export default function TelaGuia() {
 }
 
 const styles = StyleSheet.create({
-  wrapperWeb: {
-    flex: 1,
-    backgroundColor: "#f3f4f6",
-    width: "100%",
-  },
+  wrapperWeb: { flex: 1, backgroundColor: "#f3f4f6", width: "100%" },
   container: {
     flex: 1,
     padding: 16,
@@ -210,11 +240,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginBottom: 20,
-  },
+  subtitle: { fontSize: 14, color: "#6b7280", marginBottom: 20 },
   smartCard: {
     backgroundColor: "#e0f2fe",
     padding: 16,
@@ -233,28 +259,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  warningText: {
-    color: "#856404",
-    fontSize: 14,
-    flex: 1,
-  },
+  warningText: { color: "#856404", fontSize: 14, flex: 1 },
   cardTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#0369a1",
     marginBottom: 8,
   },
-  cardText: {
-    fontSize: 14,
-    color: "#374151",
-    marginBottom: 4,
-  },
-  bold: {
-    fontWeight: "bold",
-  },
-  section: {
-    marginTop: 10,
-  },
+  cardText: { fontSize: 14, color: "#374151", marginBottom: 4 },
+  bold: { fontWeight: "bold" },
+  section: { marginTop: 10 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",

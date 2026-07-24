@@ -106,6 +106,39 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     `;
   }
 
+  // 💡 Lógica do IDR e DPS para o PDF
+  let blocoProtecaoHtml = "";
+  if (resultadoDemanda && resultadoQDC) {
+    const disjGeral = resultadoDemanda.disjuntorGeral;
+    const idrAmp =
+      [25, 40, 63, 80, 100, 125].find((i) => i >= disjGeral) || disjGeral;
+    const tipoIdr = resultadoQDC.ehTrifasico ? "Tetrapolar" : "Bipolar";
+    const qtdDps = resultadosRamal
+      ? resultadosRamal.qtdVias
+      : resultadoQDC.ehTrifasico
+        ? 4
+        : tensaoGeral === 220
+          ? 3
+          : 2;
+    const tensaoDps = tensaoGeral <= 127 ? "175V" : "275V";
+
+    blocoProtecaoHtml = `
+      <div class="card">
+        <h2>🛡️ Proteção Geral Recomendada (QDC)</h2>
+        <div class="grid-info">
+          <div class="grid-row">
+            <div class="grid-cell label">Interruptor Diferencial Residual (IDR):</div>
+            <div class="grid-cell value destaque-azul">${idrAmp}A ${tipoIdr} (30mA)</div>
+          </div>
+          <div class="grid-row">
+            <div class="grid-cell label">Disp. de Proteção contra Surtos (DPS):</div>
+            <div class="grid-cell value destaque-azul">${qtdDps}x ${tensaoDps} (Classe II)</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -207,6 +240,8 @@ export const gerarMemorialPDF = async (data: PDFData) => {
           </div>
         </div>
       </div>
+      
+      ${blocoProtecaoHtml}
 
       <div class="card">
         <h2>📝 Relação Discriminada de Cargas por Divisão</h2>
