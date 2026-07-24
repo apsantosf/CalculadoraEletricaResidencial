@@ -13,7 +13,7 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { DataProvider } from "../context/DataContext";
+import { DataProvider, useData } from "../context/DataContext"; // 💡 Importamos o useData aqui!
 
 LogBox.ignoreLogs(["The Flipper native module is not available"]);
 
@@ -23,11 +23,16 @@ function BarraInferiorFixa() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
 
+  // 💡 Puxamos os dados para saber se o projeto tem algum item
+  const { comodos, tues } = useData();
+  const temProjeto =
+    (comodos && comodos.length > 0) || (tues && tues.length > 0);
+
   // Mede o respiro inferior de forma inteligente
   const bottomOffset =
     Platform.OS === "android" ? Math.max(insets.bottom + 16, 24) : 24;
 
-  // 💡 NOVA ESTRUTURA DE ABAS ATUALIZADA (Agora com o Guia)
+  // 💡 NOVA ESTRUTURA DE ABAS ATUALIZADA (Agora com Materiais)
   const tabs = [
     { key: "/", title: "Início", icon: "home", pack: "fontawesome" },
     {
@@ -39,41 +44,50 @@ function BarraInferiorFixa() {
     { key: "/tue", title: "TUEs", icon: "lightning-bolt", pack: "material" },
     {
       key: "/quadro",
-      title: "Quadro Geral",
+      title: "Quadro",
       icon: "electric-switch",
       pack: "material",
     },
-    // 👇 NOSSA NOVA ABA AQUI
+    // 👇 A NOSSA NOVA ABA (Fica antes do Guia)
     {
-      key: "/guia",
-      title: "Guia",
-      icon: "tools",
+      key: "/orcamento",
+      title: "Materiais",
+      icon: "clipboard-list",
       pack: "fontawesome",
     },
+    { key: "/guia", title: "Guia", icon: "tools", pack: "fontawesome" },
   ];
 
   return (
     <View style={[styles.tabBarWrapper, { bottom: bottomOffset }]}>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
-          // 💡 Lógica simplificada: como agora cada aba tem sua rota própria, a verificação é direta
           const isActive = pathname === tab.key;
+
+          // 💡 Lógica da Trava Inteligente
+          const isOrcamento = tab.key === "/orcamento";
+          const isBloqueado = isOrcamento && !temProjeto;
+
           const activeColor = "#208AEF";
-          const inactiveColor = "#6b7280";
+          const inactiveColor = isBloqueado ? "#d1d5db" : "#6b7280"; // Fica cinza bem clarinho se bloqueado
           const color = isActive ? activeColor : inactiveColor;
 
           return (
             <TouchableOpacity
               key={tab.key}
               style={styles.tabItem}
-              onPress={() => router.replace(tab.key as any)}
+              activeOpacity={isBloqueado ? 1 : 0.2} // Tira o efeito de clique se estiver bloqueado
+              onPress={() => {
+                if (isBloqueado) return; // 🔒 Não faz nada se tentar clicar bloqueado
+                router.replace(tab.key as any);
+              }}
             >
               {tab.pack === "fontawesome" ? (
-                <FontAwesome5 name={tab.icon as any} size={22} color={color} />
+                <FontAwesome5 name={tab.icon as any} size={20} color={color} />
               ) : (
                 <MaterialCommunityIcons
                   name={tab.icon as any}
-                  size={26}
+                  size={24}
                   color={color}
                 />
               )}
@@ -154,7 +168,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 10, // 💡 Diminuí um pouco a fonte para caber as 6 abas perfeitamente
     fontWeight: "bold",
     marginTop: 4,
   },

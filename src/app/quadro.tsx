@@ -1,5 +1,7 @@
 // src/app/quadro.tsx
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "expo-router"; // 💡 NOVO: Sensor de Foco
+import { useCallback, useState } from "react";
 import {
   Alert,
   Platform,
@@ -19,6 +21,9 @@ import {
   obterFatorDemandaGeral,
 } from "../utils/calculations";
 import { gerarMemorialPDF } from "../utils/pdfGenerator";
+
+// 💡 Chave para salvar a opção de 30% na memória
+const CHAVE_RESERVA = "@EletricaResidencial_ReservaAplicada";
 
 const aplicarDemandaTuesLista = (
   tueWatts: number[],
@@ -61,6 +66,23 @@ export default function TelaQuadro() {
   const [resultadosRamal, setResultadosRamal] = useState<any>(null);
   const [reservaAplicada, setReservaAplicada] = useState(false);
 
+  // 💡 LÓGICA ATUALIZADA: Lê do BD sempre que a aba é focada
+  useFocusEffect(
+    useCallback(() => {
+      const carregarReserva = async () => {
+        const reservaSalva = await AsyncStorage.getItem(CHAVE_RESERVA);
+        setReservaAplicada(reservaSalva === "true");
+      };
+      carregarReserva();
+    }, []),
+  );
+
+  // 💡 Grava no BD e atualiza a tela instantaneamente
+  const handleToggleReserva = async (status: boolean) => {
+    setReservaAplicada(status);
+    await AsyncStorage.setItem(CHAVE_RESERVA, status ? "true" : "false");
+  };
+
   const calcularPotenciasAtuais = () => {
     let somaIlumTugVA = 0;
     let listaVATue: number[] = [];
@@ -88,7 +110,6 @@ export default function TelaQuadro() {
       });
     });
 
-    // 💡 CORREÇÃO: Arredondamos tudo para eliminar a dízima gigantesca da tela
     const totalBrutoAplicado = Math.round(
       totalBrutoOriginal * fatorMultiplicador,
     );
@@ -218,13 +239,13 @@ export default function TelaQuadro() {
           potenciaOriginal={totalBrutoOriginal}
           tensaoGeral={tensaoGeral}
           reservaAplicada={reservaAplicada}
-          onToggleReserva={setReservaAplicada}
+          onToggleReserva={handleToggleReserva} // 💡 Usa a nova função que grava
           onCalcularRamal={setResultadosRamal}
         />
 
         {projetoTemDados && (
           <View style={styles.quadroContainer}>
-            <Text style={styles.subtitulo}>📋 Relação de Cômodos</Text>
+            <Text style={styles.subtitulo}>📋 Relação de Cômodos e TUEs</Text>
             <View style={styles.cardLista}>
               {comodos.map((c) => (
                 <View key={c.id} style={styles.itemCircuito}>

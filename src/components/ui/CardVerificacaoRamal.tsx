@@ -1,4 +1,5 @@
 // src/components/ui/CardVerificacaoRamal.tsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -14,6 +15,11 @@ import {
   determinarTipoFornecimento,
   processarTrechoRamal,
 } from "../../utils/calculations";
+
+const CHAVE_DISTANCIA_EXTERNA = "@EletricaResidencial_DistanciaExt";
+const CHAVE_DISTANCIA_QDC = "@EletricaResidencial_DistanciaQDC";
+// 💡 NOVA CHAVE: Para enviar a bitola e metragem exatas para o orçamento
+const CHAVE_DADOS_RAMAL = "@EletricaResidencial_DadosRamal";
 
 interface CardVerificacaoRamalProps {
   potenciaTotal: number;
@@ -32,7 +38,6 @@ export function CardVerificacaoRamal({
   onToggleReserva,
   onCalcularRamal,
 }: CardVerificacaoRamalProps) {
-  // 💡 1. Puxamos a distribuidora escolhida pelo utilizador
   const { sistemaDistribuicao, tipoImovel, distribuidora } = useData();
   const [distanciaExterna, setDistanciaExterna] = useState("");
   const [distanciaInterna, setDistanciaInterna] = useState("");
@@ -41,55 +46,32 @@ export function CardVerificacaoRamal({
 
   const potAtual = parseFloat(potenciaEditavel) || 0;
 
-  // 💡 2. MÁGICA VISUAL: Identifica o limite da concessionária para a interface
   const getLimiteBifasico = (dist: string) => {
     if (["CEMIG", "COPEL", "LIGHT", "CELESC"].includes(dist)) return 15000;
     if (["ENERGISA", "EQUATORIAL"].includes(dist)) return 20000;
-    return 25000; // Padrão CPFL, Enel, Neoenergia, EDP
+    return 25000;
   };
 
   const distAtual = distribuidora || "CPFL";
   const limiteBifasico = getLimiteBifasico(distAtual);
-
-  // Agora o bloqueio visual respeita o limite regional!
   const obrigatorioTrifasico = potAtual > limiteBifasico;
 
-  useEffect(() => {
-    if (potenciaTotal > 0) {
-      setPotenciaEditavel(potenciaTotal.toString());
-    } else {
-      setPotenciaEditavel("");
-      setResultadosLocal(null);
-      onToggleReserva(false);
-      onCalcularRamal(null);
-    }
-  }, [potenciaTotal]);
-
-  useEffect(() => {
-    if (resultadosLocal) {
-      handleCalcular();
-    }
-  }, [sistemaDistribuicao, tensaoGeral, tipoImovel, distribuidora]); // Recalcula se mudar a distribuidora
-
-  const handleCalcular = () => {
-    const potBrutaAlvo = parseFloat(potenciaEditavel);
+  const executarCalculo = (
+    valDistExt: string,
+    valDistInt: string,
+    valPotencia: number,
+  ) => {
+    const potBrutaAlvo = valPotencia;
     const distExt =
-      tipoImovel === "Casa"
-        ? parseFloat(distanciaExterna.replace(",", "."))
-        : 0;
-    const distInt = parseFloat(distanciaInterna.replace(",", "."));
+      tipoImovel === "Casa" ? parseFloat(valDistExt.replace(",", ".")) : 0;
+    const distInt = parseFloat(valDistInt.replace(",", "."));
 
-    if (isNaN(potBrutaAlvo) || potBrutaAlvo <= 0) {
-      if (Platform.OS === "web")
-        window.alert("Informe uma potência total válida.");
-      else Alert.alert("Atenção", "Informe uma potência total válida.");
-      return;
-    }
+    if (isNaN(potBrutaAlvo) || potBrutaAlvo <= 0) return;
 
-    if ((tipoImovel === "Casa" && isNaN(distExt)) || isNaN(distInt)) {
-      if (Platform.OS === "web")
-        window.alert("Preencha as distâncias corretamente.");
-      else Alert.alert("Atenção", "Preencha as distâncias corretamente.");
+    if (isNaN(distInt) || distInt <= 0) {
+      setResultadosLocal(null);
+      onCalcularRamal(null);
+      AsyncStorage.removeItem(CHAVE_DADOS_RAMAL); // Limpa do orçamento
       return;
     }
 
@@ -99,7 +81,6 @@ export function CardVerificacaoRamal({
     ];
     let disjTeste = disjuntoresTeste.find((d) => d >= correnteBruta) || 200;
 
-    // 💡 3. Passamos a distribuidora para o motor matemático
     let fornecimentoCalculado = determinarTipoFornecimento(
       disjTeste,
       tensaoGeral,
@@ -107,7 +88,6 @@ export function CardVerificacaoRamal({
       distAtual,
     );
 
-    // Garante que o rótulo visual acompanha o limite matemático
     if (
       fornecimentoCalculado.includes("Trifásico") ||
       potBrutaAlvo > limiteBifasico
@@ -132,7 +112,6 @@ export function CardVerificacaoRamal({
       correnteReal = potBrutaAlvo / divisor;
     }
 
-    // 💡 4. Motor de dimensionamento do ramal agora lê a distribuidora
     const trecho1 =
       tipoImovel === "Casa"
         ? processarTrechoRamal(
@@ -157,6 +136,14 @@ export function CardVerificacaoRamal({
     if (trecho1) trecho1.classificacao = fornecimentoCalculado;
     if (trecho2) trecho2.classificacao = fornecimentoCalculado;
 
+    // 💡 REGRA EXATA DE VIAS
+    let qtdVias = 2;
+    if (ehBifasico) qtdVias = 3;
+    if (ehTrifasico) qtdVias = 4;
+
+    // Metragem total calculada com 10% de folga arredondada para cima
+    const metragemTotalVias = Math.ceil(distInt * qtdVias * 1.1);
+
     const resumoResultados = {
       cargaInstaladaConsiderada: Math.round(potBrutaAlvo),
       potenciaDemanda: Math.round(potBrutaAlvo),
@@ -164,10 +151,118 @@ export function CardVerificacaoRamal({
       fornecimento: fornecimentoCalculado,
       trecho1,
       trecho2,
+      distanciaMetros: distInt,
+      qtdVias,
+      metragemTotalVias,
     };
+
+    // 💡 EXPORTAÇÃO PARA O ORÇAMENTO:
+    // Monta o ID correto do cabo (ex: "cabo_4_0", "cabo_10_0") baseado na bitola exata do trecho 2.
+    if (trecho2 && trecho2.bitola) {
+      const bitolaFormatada = trecho2.bitola.toString().replace(".", "_");
+      const idCaboGerado = `cabo_${bitolaFormatada}_0`;
+
+      AsyncStorage.setItem(
+        CHAVE_DADOS_RAMAL,
+        JSON.stringify({
+          idCabo: idCaboGerado,
+          metragem: metragemTotalVias,
+        }),
+      );
+    }
 
     setResultadosLocal(resumoResultados);
     onCalcularRamal(resumoResultados);
+  };
+
+  useEffect(() => {
+    const carregarDistancias = async () => {
+      const distExtSalva =
+        (await AsyncStorage.getItem(CHAVE_DISTANCIA_EXTERNA)) || "";
+      const distIntSalva =
+        (await AsyncStorage.getItem(CHAVE_DISTANCIA_QDC)) || "";
+
+      setDistanciaExterna(distExtSalva);
+      setDistanciaInterna(distIntSalva);
+
+      if (potenciaTotal > 0 && distIntSalva) {
+        const dist = parseFloat(distIntSalva.replace(",", "."));
+        if (dist > 0) {
+          executarCalculo(distExtSalva, distIntSalva, potenciaTotal);
+        }
+      }
+    };
+    carregarDistancias();
+  }, [
+    potenciaTotal,
+    sistemaDistribuicao,
+    tensaoGeral,
+    tipoImovel,
+    distribuidora,
+  ]);
+
+  useEffect(() => {
+    if (potenciaTotal > 0) {
+      setPotenciaEditavel(potenciaTotal.toString());
+    } else {
+      // 💡 Projeto zerado / Novo projeto: Limpar todos os campos e cache
+      setPotenciaEditavel("");
+      setDistanciaExterna("");
+      setDistanciaInterna("");
+      setResultadosLocal(null);
+      onToggleReserva(false);
+      onCalcularRamal(null);
+
+      // Remove do cache para não vazar dados para o próximo projeto
+      AsyncStorage.removeItem(CHAVE_DADOS_RAMAL);
+      AsyncStorage.removeItem(CHAVE_DISTANCIA_EXTERNA);
+      AsyncStorage.removeItem(CHAVE_DISTANCIA_QDC);
+    }
+  }, [potenciaTotal]);
+
+  const handleAtualizarDistanciaExterna = async (valor: string) => {
+    setDistanciaExterna(valor);
+    await AsyncStorage.setItem(CHAVE_DISTANCIA_EXTERNA, valor);
+  };
+
+  const handleAtualizarDistanciaInterna = async (valor: string) => {
+    setDistanciaInterna(valor);
+    await AsyncStorage.setItem(CHAVE_DISTANCIA_QDC, valor);
+
+    const dist = parseFloat(valor.replace(",", "."));
+    if (isNaN(dist) || dist <= 0) {
+      setResultadosLocal(null);
+      onCalcularRamal(null);
+      await AsyncStorage.removeItem(CHAVE_DADOS_RAMAL); // Limpa do orçamento se usuário apagar
+    }
+  };
+
+  const handleCalcular = () => {
+    const pot = parseFloat(potenciaEditavel);
+    const dist = parseFloat(distanciaInterna.replace(",", "."));
+
+    if (isNaN(pot) || pot <= 0) {
+      if (Platform.OS === "web")
+        window.alert("Informe uma potência total válida.");
+      else Alert.alert("Atenção", "Informe uma potência total válida.");
+      return;
+    }
+
+    if (isNaN(dist) || dist <= 0) {
+      setResultadosLocal(null);
+      onCalcularRamal(null);
+      AsyncStorage.removeItem(CHAVE_DADOS_RAMAL);
+      if (Platform.OS === "web")
+        window.alert("Preencha a distância com um valor maior que zero.");
+      else
+        Alert.alert(
+          "Atenção",
+          "Preencha a distância com um valor maior que zero.",
+        );
+      return;
+    }
+
+    executarCalculo(distanciaExterna, distanciaInterna, pot);
   };
 
   const mostrarInfoReserva = () => {
@@ -245,7 +340,6 @@ export function CardVerificacaoRamal({
         </Text>
       )}
 
-      {/* 💡 Alerta de bloqueio atualizado para mostrar o número exato da concessionária */}
       {obrigatorioTrifasico && (
         <View style={styles.alertaBloqueioBotoes}>
           <Text style={styles.textoAlertaBloqueio}>
@@ -292,7 +386,7 @@ export function CardVerificacaoRamal({
               style={styles.input}
               keyboardType="numeric"
               value={distanciaExterna}
-              onChangeText={setDistanciaExterna}
+              onChangeText={handleAtualizarDistanciaExterna}
               placeholder="Ex: 15"
             />
           </View>
@@ -307,7 +401,7 @@ export function CardVerificacaoRamal({
             style={styles.input}
             keyboardType="numeric"
             value={distanciaInterna}
-            onChangeText={setDistanciaInterna}
+            onChangeText={handleAtualizarDistanciaInterna}
             placeholder="Ex: 10"
           />
         </View>
@@ -333,7 +427,6 @@ export function CardVerificacaoRamal({
             {resultadosLocal.correnteDemanda} A)
           </Text>
 
-          {/* 💡 Alerta Trifásico atualizado com o limite dinâmico */}
           {resultadosLocal.cargaInstaladaConsiderada > limiteBifasico &&
             tipoImovel !== "Apartamento" && (
               <View style={styles.alertaTrifasico}>
@@ -363,13 +456,16 @@ export function CardVerificacaoRamal({
               </Text>
             </View>
           )}
+
           <View style={styles.linhaTrecho}>
-            <Text style={styles.lblTrecho}>
-              🏠 {tipoImovel === "Casa" ? "Medidor ao QDC" : "Medidor ao QDC"}:
-            </Text>
+            <Text style={styles.lblTrecho}>🏠 Medidor ao QDC:</Text>
             <Text style={styles.valTrecho}>
               Cabo {resultadosLocal.trecho2.bitola} mm² | Disj:{" "}
               {resultadosLocal.trecho2.disjuntor} A
+            </Text>
+            <Text style={styles.valTrechoDetalhe}>
+              📏 {resultadosLocal.distanciaMetros}m x {resultadosLocal.qtdVias}{" "}
+              vias = {resultadosLocal.metragemTotalVias}m (c/ folga)
             </Text>
           </View>
         </View>
@@ -446,14 +542,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   textoBotaoAcaoRemover: { color: "#991b1b", fontSize: 11, fontWeight: "bold" },
-
-  botaoDesativado: {
-    backgroundColor: "#f3f4f6",
-    borderColor: "#e5e7eb",
-  },
-  textoDesativado: {
-    color: "#9ca3af",
-  },
+  botaoDesativado: { backgroundColor: "#f3f4f6", borderColor: "#e5e7eb" },
+  textoDesativado: { color: "#9ca3af" },
   alertaBloqueioBotoes: {
     backgroundColor: "#fff1f2",
     borderWidth: 1,
@@ -468,7 +558,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: "justify",
   },
-
   row: { flexDirection: "row", justifyContent: "space-between" },
   col: { width: "48%" },
   botaoCalcularRamal: {
@@ -537,5 +626,12 @@ const styles = StyleSheet.create({
     color: "#1e3a8a",
     marginTop: 2,
     fontWeight: "500",
+  },
+  valTrechoDetalhe: {
+    fontSize: 12,
+    color: "#2563eb",
+    marginTop: 4,
+    fontWeight: "600",
+    fontStyle: "italic",
   },
 });
