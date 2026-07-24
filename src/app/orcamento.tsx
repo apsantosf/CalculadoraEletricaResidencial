@@ -760,7 +760,8 @@ const styles = StyleSheet.create({
     borderColor: "#d1d5db",
     borderRadius: 6,
     width: 50,
-    height: 36,
+    height: 40, // 💡 Aumentamos a altura de 36 para 40
+    padding: 0, // 💡 Remove o espaçamento nativo do Android que corta o topo do número
     textAlign: "center",
     fontSize: 16,
     fontWeight: "bold",
@@ -895,7 +896,8 @@ const styles = StyleSheet.create({
     borderColor: "#d1d5db",
     borderRadius: 6,
     width: 70,
-    height: 36,
+    height: 40,
+    padding: 0, // 💡 Remove o espaçamento nativo
     textAlign: "center",
     fontSize: 14,
     fontWeight: "bold",
