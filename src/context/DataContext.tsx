@@ -1,5 +1,6 @@
 // src/context/DataContext.tsx
-import React, { createContext, useContext, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // 💡 Importação necessária para a limpeza
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { Comodo, Dispositivo } from "../utils/templates";
 
 // 1. O tipo exportado caso outras telas precisem saber as opções exatas
@@ -16,7 +17,6 @@ interface DataContextType {
   sistemaDistribuicao: TipoSistema;
   setSistemaDistribuicao: (sistema: TipoSistema) => void;
 
-  // 💡 NOVA VARIÁVEL: Casa ou Apartamento
   tipoImovel: TipoImovel;
   setTipoImovel: (tipo: TipoImovel) => void;
 
@@ -46,11 +46,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [sistemaDistribuicao, setSistemaDistribuicao] =
     useState<TipoSistema>("127/220V");
 
-  // 💡 Estado inicial definido como Casa
   const [tipoImovel, setTipoImovel] = useState<TipoImovel>("Casa");
 
   const [comodos, setComodos] = useState<Comodo[]>([]);
   const [tokenReset, setTokenReset] = useState<number>(0);
+
+  // 🧹 ROTINA AUTO-LIMPANTE (GARBAGE COLLECTION)
+  // Como os TUEs e Cômodos compartilham a mesma matriz principal, basta vigiá-la.
+  useEffect(() => {
+    const limparMemoriaFantasma = async () => {
+      if (comodos.length === 0) {
+        try {
+          await AsyncStorage.multiRemove([
+            "@EletricaResidencial_Carrinho_V1",
+            "@EletricaResidencial_DadosRamal",
+            "@EletricaResidencial_Protecao",
+            "@EletricaResidencial_ReservaAplicada",
+          ]);
+        } catch (error) {
+          console.error("Erro ao limpar dados antigos da memória:", error);
+        }
+      }
+    };
+
+    limparMemoriaFantasma();
+  }, [comodos]);
 
   const adicionarComodo = (novoComodo: Comodo) => {
     setComodos((prev) => [...prev, novoComodo]);
@@ -111,7 +131,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   };
 
   const zerarProjeto = () => {
-    setComodos([]);
+    setComodos([]); // 💡 Ao esvaziar a matriz aqui, o useEffect ali em cima é acionado na hora!
     setTokenReset((prev) => prev + 1);
   };
 
@@ -124,8 +144,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setDistribuidora,
         sistemaDistribuicao,
         setSistemaDistribuicao,
-        tipoImovel, // 💡 Exportando o tipo de imóvel
-        setTipoImovel, // 💡 Exportando a função
+        tipoImovel,
+        setTipoImovel,
         comodos,
         adicionarComodo,
         removerComodo,
