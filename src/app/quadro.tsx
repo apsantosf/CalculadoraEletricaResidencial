@@ -149,11 +149,47 @@ export default function TelaQuadro() {
         })
       : null;
 
-  // 💡 CORREÇÃO DA SELETIVIDADE: QDC espelha a Demanda para não ficar maior que o Poste
-  if (resultadoQDC && resultadoDemanda) {
-    resultadoQDC.disjuntorGeral = resultadoDemanda.disjuntorGeral;
-    resultadoQDC.caboGeral = resultadoDemanda.caboGeral;
-    resultadoQDC.ehTrifasico = resultadoDemanda.ehTrifasico;
+  // 🛡️ APLICANDO A SELETIVIDADE E O PISO MÍNIMO DE 32A NO QDC E NA DEMANDA
+  if (resultadoQDC) {
+    const disjuntoresDisponiveis = [
+      10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125,
+    ];
+
+    // Descobre o maior disjuntor individual presente nos cômodos para garantir seletividade
+    let maiorDisjuntorCircuito = 10;
+    comodos.forEach((c) => {
+      c.dispositivos.forEach((d) => {
+        const potTotal = d.potencia * d.quantidade;
+        let potVA =
+          d.tipo === "tue"
+            ? potTotal /
+              (d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85)
+            : potTotal;
+        const dim = obterDimensionamentoCircuito(d.tipo, potVA, tensaoGeral);
+        if (dim.disj > maiorDisjuntorCircuito) {
+          maiorDisjuntorCircuito = dim.disj;
+        }
+      });
+    });
+
+    // O disjuntor geral deve ser pelo menos 32A (padrão de entrada) E maior que o maior circuito interno
+    const correnteCalculadaDemanda = resultadoDemanda
+      ? resultadoDemanda.potenciaTotalVA / tensaoGeral
+      : 0;
+    const amperagemMinima = Math.max(
+      correnteCalculadaDemanda,
+      32,
+      maiorDisjuntorCircuito,
+    );
+
+    const disjGeralFinal =
+      disjuntoresDisponiveis.find((d) => d >= amperagemMinima) || 40;
+
+    // Ajusta o resultado do QDC e da Demanda com o valor corrigido
+    resultadoQDC.disjuntorGeral = disjGeralFinal;
+    if (resultadoDemanda) {
+      resultadoDemanda.disjuntorGeral = disjGeralFinal;
+    }
   }
 
   useEffect(() => {
@@ -300,7 +336,6 @@ export default function TelaQuadro() {
     }
   };
 
-  // 💡 Enviamos a Demanda Real para que o Ramal dimensione o cabo e disjuntor corretamente
   const potenciaParaRamal = resultadoDemanda
     ? resultadoDemanda.potenciaTotalVA
     : totalBrutoAplicado;

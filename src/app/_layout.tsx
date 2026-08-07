@@ -1,6 +1,8 @@
 // src/app/_layout.tsx
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // 💡 IMPORTAÇÃO ADICIONADA
 import { Slot, usePathname, useRouter } from "expo-router";
+import { useEffect, useState } from "react"; // 💡 IMPORTAÇÃO ADICIONADA
 import {
   LogBox,
   Platform,
@@ -13,7 +15,8 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { DataProvider, useData } from "../context/DataContext"; // 💡 Importamos o useData aqui!
+import ModalTermoResponsabilidade from "../components/ui/ModalTermoResponsabilidade"; // 💡 IMPORTAÇÃO ADICIONADA
+import { DataProvider, useData } from "../context/DataContext";
 
 LogBox.ignoreLogs(["The Flipper native module is not available"]);
 
@@ -115,9 +118,43 @@ function LayoutRaiz() {
 }
 
 export default function RootLayout() {
+  const [exibirTermo, setExibirTermo] = useState(false);
+
+  useEffect(() => {
+    // checarAtualizacao(); // Se você já usa isso no Residencial, mantenha
+    verificarAceiteTermo();
+  }, []);
+
+  const verificarAceiteTermo = async () => {
+    try {
+      const aceitou = await AsyncStorage.getItem(
+        "@eletrica_residencial:termo_aceito",
+      );
+      if (aceitou !== "true") {
+        setExibirTermo(true);
+      }
+    } catch (error) {
+      console.log("Erro ao verificar termo:", error);
+    }
+  };
+
+  const handleAceitarTermo = async () => {
+    try {
+      await AsyncStorage.setItem("@eletrica_residencial:termo_aceito", "true");
+      setExibirTermo(false);
+    } catch (error) {
+      console.log("Erro ao salvar aceite:", error);
+    }
+  };
+
   return (
     <SafeAreaProvider>
       <LayoutRaiz />
+      {/* MODAL INJETADO AQUI */}
+      <ModalTermoResponsabilidade
+        visivel={exibirTermo}
+        onAceitar={handleAceitarTermo}
+      />
     </SafeAreaProvider>
   );
 }
