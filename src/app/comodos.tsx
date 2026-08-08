@@ -19,6 +19,7 @@ import {
   calcularIluminacao,
   calcularPotenciaTugs,
   calcularQuantidadeTugs,
+  obterDimensionamentoCircuito, // 💡 Importado do motor central
 } from "../utils/calculations";
 
 const TEMPLATES_COMODOS: Record<string, string> = {
@@ -33,30 +34,6 @@ const TEMPLATES_COMODOS: Record<string, string> = {
   "Área de Serviço": "área de serviço",
   Escritório: "escritório",
   Corredor: "corredor",
-};
-
-const obterDimensionamentoCircuito = (
-  tipo: string,
-  potenciaTotal: number,
-  tensao: number,
-) => {
-  const t = tensao || 220;
-  const corrente = potenciaTotal / t;
-
-  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
-  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
-
-  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
-  let disj = disjuntores.find((d) => d >= corrente) || 100;
-  let cabo = "2.5";
-  if (disj > 20 && disj <= 25) cabo = "4";
-  else if (disj > 25 && disj <= 32) cabo = "6";
-  else if (disj > 32 && disj <= 40) cabo = "10";
-  else if (disj > 40 && disj <= 50) cabo = "10";
-  else if (disj > 50 && disj <= 63) cabo = "16";
-  else if (disj > 63) cabo = "25";
-
-  return { cabo, disj };
 };
 
 export default function ScreenComodos() {
@@ -210,7 +187,6 @@ export default function ScreenComodos() {
             Sugestões de Ambientes (Normativo NBR 5410)
           </Text>
 
-          {/* 💡 PICKER AJUSTADO AO PADRÃO */}
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={tipoAmbiente}
@@ -411,7 +387,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 15,
   },
-  // 💡 ESTILO ATUALIZADO DO PICKER
   pickerContainer: {
     backgroundColor: "#f9fafb",
     borderWidth: 1,
@@ -486,9 +461,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginLeft: 6,
   },
-  botaoAdicionarPronto: {
-    backgroundColor: "#059669",
-  },
+  botaoAdicionarPronto: { backgroundColor: "#059669" },
   textoBotaoBranco: { color: "#fff", fontWeight: "bold", fontSize: 14 },
   tituloLista: {
     fontSize: 16,
@@ -508,7 +481,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: `6`,
+    marginBottom: 6,
   },
   nomeComodo: { fontSize: 15, fontWeight: "bold", color: "#374151" },
   botaoRemover: { fontSize: 14 },

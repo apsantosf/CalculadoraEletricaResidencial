@@ -1,4 +1,4 @@
-// src/app/telaGuia.tsx
+// src/app/guia.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -18,27 +18,22 @@ import {
   obterFatorDemandaGeral,
 } from "../utils/calculations";
 
-const CHAVE_PROTECAO = "@EletricaResidencial_Protecao";
-const CHAVE_RESERVA = "@EletricaResidencial_ReservaAplicada";
+// 💡 CORRIGIDO: Chave unificada com o Quadro e Orçamento
+const CHAVE_PROTECOES_GERAIS = "@EletricaResidencial_ProtecoesGerais";
 
 export default function TelaGuia() {
   const router = useRouter();
   const { comodos, tensaoGeral, distribuidora } = useData();
 
   const [protecaoSalva, setProtecaoSalva] = useState<any>(null);
-  const [reservaAplicada, setReservaAplicada] = useState(false);
 
-  // 💡 LÓGICA NOVA: O Guia agora lê a inteligência exata do Quadro
+  // 💡 O Guia agora lê a inteligência exata e unificada do Quadro
   useFocusEffect(
     useCallback(() => {
       const carregarDadosGlobais = async () => {
-        const protecao = await AsyncStorage.getItem(CHAVE_PROTECAO);
-        const reserva = await AsyncStorage.getItem(CHAVE_RESERVA);
-
+        const protecao = await AsyncStorage.getItem(CHAVE_PROTECOES_GERAIS);
         if (protecao) setProtecaoSalva(JSON.parse(protecao));
         else setProtecaoSalva(null);
-
-        setReservaAplicada(reserva === "true");
       };
       carregarDadosGlobais();
     }, []),
@@ -53,18 +48,20 @@ export default function TelaGuia() {
   let tipoIdr = "Bipolar";
 
   if (projetoTemDados) {
-    // Se o Quadro já calculou e salvou, nós apenas espelhamos com precisão máxima
     if (protecaoSalva) {
-      disjuntorGeralCalculado = protecaoSalva.disjQDC?.amp || 0;
-      idrRecomendado = protecaoSalva.idr?.amp || 0;
-      tipoIdr =
-        protecaoSalva.idr?.id === "idr_tetrapolar" ? "Tetrapolar" : "Bipolar";
-      dpsRecomendado = protecaoSalva.dps?.qtd || 2;
+      // 💡 Se o Quadro já salvou, espelha a proteção geral perfeitamente
+      disjuntorGeralCalculado = protecaoSalva.disjuntorGeral || 0;
+      const idrsComerciais = [25, 40, 63, 80, 100, 125];
+      idrRecomendado =
+        idrsComerciais.find((idr) => idr >= disjuntorGeralCalculado) ||
+        disjuntorGeralCalculado;
+
+      dpsRecomendado = protecaoSalva.qtdVias || 2;
+      tipoIdr = dpsRecomendado >= 4 ? "Tetrapolar" : "Bipolar";
     } else {
-      // Fallback de segurança: Caso o usuário não tenha passado pela aba Quadro ainda
+      // Fallback de segurança se o usuário pulou a aba Quadro
       let somaIlumTugVA = 0;
       let listaVATue: number[] = [];
-      const fatorMultiplicador = reservaAplicada ? 1.3 : 1.0; // 💡 Agora considera a reserva
 
       comodos.forEach((c) => {
         c.dispositivos.forEach((d) => {
@@ -72,11 +69,10 @@ export default function TelaGuia() {
           if (d.tipo === "tue") {
             const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
             potOriginalVA = potOriginalVA / fp;
+            listaVATue.push(potOriginalVA);
+          } else {
+            somaIlumTugVA += potOriginalVA;
           }
-          const potComReserva = potOriginalVA * fatorMultiplicador;
-
-          if (d.tipo === "tue") listaVATue.push(potComReserva);
-          else somaIlumTugVA += potComReserva;
         });
       });
 
@@ -92,18 +88,11 @@ export default function TelaGuia() {
         somaIlumTugVA * obterFatorDemandaGeral(Math.round(somaIlumTugVA)),
       );
 
-      const resultadoQDC = calcularAlimentadorGeral({
-        potenciaIlumTugVA: Math.round(somaIlumTugVA),
-        potenciasTueWatts: listaVATue.map(Math.round),
-        tensao: tensaoGeral,
-        forcarTrifasico: false,
-      });
-
       const resultadoDemanda = calcularAlimentadorGeral({
         potenciaIlumTugVA: demandaIlumTug,
         potenciasTueWatts: tuesComDemanda,
         tensao: tensaoGeral,
-        forcarTrifasico: resultadoQDC?.ehTrifasico || false,
+        forcarTrifasico: false,
       });
 
       disjuntorGeralCalculado = resultadoDemanda?.disjuntorGeral || 0;
@@ -111,12 +100,8 @@ export default function TelaGuia() {
       idrRecomendado =
         idrsComerciais.find((idr) => idr >= disjuntorGeralCalculado) ||
         disjuntorGeralCalculado;
-      tipoIdr = resultadoQDC?.ehTrifasico ? "Tetrapolar" : "Bipolar";
-      dpsRecomendado = resultadoQDC?.ehTrifasico
-        ? 4
-        : tensaoGeral === 220
-          ? 3
-          : 2;
+      tipoIdr = "Bipolar";
+      dpsRecomendado = tensaoGeral === 220 ? 3 : 2;
     }
   }
 
@@ -138,7 +123,7 @@ export default function TelaGuia() {
               Recomendação Base ({voltagem}V)
             </Text>
             <Text style={styles.cardText}>
-              Disjuntor Padrão ({distribuidora || "CPFL"}):{" "}
+              Disjuntor Padrão ({distribuidora || "Norma Geral"}):{" "}
               <Text style={styles.bold}>{disjuntorGeralCalculado}A</Text>
             </Text>
             <Text style={styles.cardText}>

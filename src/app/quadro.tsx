@@ -1,7 +1,6 @@
 // src/app/quadro.tsx
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { FontAwesome5 } from "@expo/vector-icons";
+import { useState } from "react";
 import {
   Alert,
   Platform,
@@ -18,12 +17,10 @@ import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
 import {
   calcularAlimentadorGeral,
+  obterDimensionamentoCircuito,
   obterFatorDemandaGeral,
 } from "../utils/calculations";
 import { gerarMemorialPDF } from "../utils/pdfGenerator";
-
-const CHAVE_RESERVA = "@EletricaResidencial_ReservaAplicada";
-const CHAVE_PROTECAO = "@EletricaResidencial_Protecao";
 
 const aplicarDemandaTuesLista = (
   tueWatts: number[],
@@ -38,62 +35,29 @@ const aplicarDemandaTuesLista = (
   return tueWatts.map((pot) => pot * fator);
 };
 
-const obterDimensionamentoCircuito = (
-  tipo: string,
-  potenciaTotal: number,
-  tensao: number,
-) => {
-  const corrente = potenciaTotal / tensao;
-  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
-  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
-
-  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
-  let disj = disjuntores.find((d) => d >= corrente) || 100;
-  let cabo = "2.5";
-  if (disj > 20 && disj <= 25) cabo = "4";
-  else if (disj > 25 && disj <= 32) cabo = "6";
-  else if (disj > 32 && disj <= 40) cabo = "10";
-  else if (disj > 40 && disj <= 50) cabo = "10";
-  else if (disj > 50 && disj <= 63) cabo = "16";
-  else if (disj > 63) cabo = "25";
-
-  return { cabo, disj };
-};
-
 export default function TelaQuadro() {
   const { comodos, tensaoGeral, distribuidora, tipoImovel, removerComodo } =
     useData();
   const [resultadosRamal, setResultadosRamal] = useState<any>(null);
+
   const [reservaAplicada, setReservaAplicada] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      const carregarReserva = async () => {
-        const reservaSalva = await AsyncStorage.getItem(CHAVE_RESERVA);
-        setReservaAplicada(reservaSalva === "true");
-      };
-      carregarReserva();
-    }, []),
-  );
-
-  const handleToggleReserva = async (status: boolean) => {
-    setReservaAplicada(status);
-    await AsyncStorage.setItem(CHAVE_RESERVA, status ? "true" : "false");
-  };
 
   const calcularPotenciasAtuais = () => {
     let somaIlumTugVA = 0;
     let listaVATue: number[] = [];
     let totalBrutoOriginal = 0;
+
     const fatorMultiplicador = reservaAplicada ? 1.3 : 1.0;
 
     comodos.forEach((c) => {
       c.dispositivos.forEach((d) => {
         let potOriginalVA = d.potencia * d.quantidade;
+
         if (d.tipo === "tue") {
           const fp = d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85;
           potOriginalVA = potOriginalVA / fp;
         }
+
         totalBrutoOriginal += potOriginalVA;
         const potComReserva = potOriginalVA * fatorMultiplicador;
 
@@ -125,12 +89,16 @@ export default function TelaQuadro() {
   } = calcularPotenciasAtuais();
   const projetoTemDados = comodos && comodos.length > 0;
 
+  const limiteBifasico = 12000;
+  const limiteTrifasico = 25000;
+  const exigeTrifasico = totalBrutoAplicado > limiteTrifasico;
+
   const resultadoQDC = projetoTemDados
     ? calcularAlimentadorGeral({
         potenciaIlumTugVA: somaIlumTugVA,
         potenciasTueWatts: listaWattsTue,
         tensao: tensaoGeral,
-        forcarTrifasico: false,
+        forcarTrifasico: exigeTrifasico,
       })
     : null;
 
@@ -145,112 +113,9 @@ export default function TelaQuadro() {
             distribuidora,
           ).map(Math.round),
           tensao: tensaoGeral,
-          forcarTrifasico: resultadoQDC.ehTrifasico,
+          forcarTrifasico: exigeTrifasico || resultadoQDC.ehTrifasico,
         })
       : null;
-
-  // 🛡️ APLICANDO A SELETIVIDADE E O PISO MÍNIMO DE 32A NO QDC E NA DEMANDA
-  if (resultadoQDC) {
-    const disjuntoresDisponiveis = [
-      10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125,
-    ];
-
-    // Descobre o maior disjuntor individual presente nos cômodos para garantir seletividade
-    let maiorDisjuntorCircuito = 10;
-    comodos.forEach((c) => {
-      c.dispositivos.forEach((d) => {
-        const potTotal = d.potencia * d.quantidade;
-        let potVA =
-          d.tipo === "tue"
-            ? potTotal /
-              (d.nome.toLowerCase().includes("chuveiro") ? 1.0 : 0.85)
-            : potTotal;
-        const dim = obterDimensionamentoCircuito(d.tipo, potVA, tensaoGeral);
-        if (dim.disj > maiorDisjuntorCircuito) {
-          maiorDisjuntorCircuito = dim.disj;
-        }
-      });
-    });
-
-    // O disjuntor geral deve ser pelo menos 32A (padrão de entrada) E maior que o maior circuito interno
-    const correnteCalculadaDemanda = resultadoDemanda
-      ? resultadoDemanda.potenciaTotalVA / tensaoGeral
-      : 0;
-    const amperagemMinima = Math.max(
-      correnteCalculadaDemanda,
-      32,
-      maiorDisjuntorCircuito,
-    );
-
-    const disjGeralFinal =
-      disjuntoresDisponiveis.find((d) => d >= amperagemMinima) || 40;
-
-    // Ajusta o resultado do QDC e da Demanda com o valor corrigido
-    resultadoQDC.disjuntorGeral = disjGeralFinal;
-    if (resultadoDemanda) {
-      resultadoDemanda.disjuntorGeral = disjGeralFinal;
-    }
-  }
-
-  useEffect(() => {
-    const salvarProtecaoGlobal = async () => {
-      if (resultadoDemanda && resultadoQDC) {
-        const disjGeral = resultadoDemanda.disjuntorGeral;
-        const idrsComerciais = [25, 40, 63, 80, 100, 125];
-        const idrAmp =
-          idrsComerciais.find((idr) => idr >= disjGeral) || disjGeral;
-
-        const ehTri = resultadoQDC.ehTrifasico;
-        const idIdr = ehTri ? "idr_tetrapolar" : "idr_bipolar";
-
-        let qtdDps = 2;
-        if (resultadosRamal && resultadosRamal.qtdVias) {
-          qtdDps = resultadosRamal.qtdVias;
-        } else if (ehTri) {
-          qtdDps = 4;
-        } else if (tensaoGeral === 220) {
-          qtdDps = 3;
-        }
-
-        const polosQDC = ehTri ? 3 : tensaoGeral === 127 ? 1 : 2;
-        const idDisjQDC =
-          polosQDC === 3
-            ? "disj_tri"
-            : polosQDC === 2
-              ? "disj_bi"
-              : "disj_mono";
-
-        let disjMedidorObj = null;
-        if (resultadosRamal && resultadosRamal.trecho2) {
-          const ehTriMedidor =
-            resultadosRamal.fornecimento.includes("Trifásico");
-          const ehBiMedidor = resultadosRamal.fornecimento.includes("Bifásico");
-          const idDisjMedidor = ehTriMedidor
-            ? "disj_tri"
-            : ehBiMedidor
-              ? "disj_bi"
-              : "disj_mono";
-          disjMedidorObj = {
-            id: idDisjMedidor,
-            amp: resultadosRamal.trecho2.disjuntor,
-          };
-        }
-
-        await AsyncStorage.setItem(
-          CHAVE_PROTECAO,
-          JSON.stringify({
-            idr: { id: idIdr, qtd: 1, amp: idrAmp },
-            dps: { id: "dps_275v", qtd: qtdDps },
-            disjQDC: { id: idDisjQDC, amp: resultadoQDC.disjuntorGeral },
-            disjMedidor: disjMedidorObj,
-          }),
-        );
-      } else {
-        await AsyncStorage.removeItem(CHAVE_PROTECAO);
-      }
-    };
-    salvarProtecaoGlobal();
-  }, [resultadoDemanda, resultadoQDC, resultadosRamal, tensaoGeral]);
 
   const handleGerarPDF = async () => {
     await gerarMemorialPDF({
@@ -291,22 +156,6 @@ export default function TelaQuadro() {
 
       texto += `💡 QDC INTERNO (INSTALADO):\nPotência: ${resultadoQDC?.potenciaTotalVA} VA\nCabo: ${resultadoQDC?.caboGeral} mm²\nDisjuntor: ${resultadoQDC?.disjuntorGeral} A\n`;
       texto += `\n🏢 DEMANDA PADRÃO (${distribuidora}):\nDemanda: ${resultadoDemanda?.potenciaTotalVA} VA\nCabo: ${resultadoDemanda?.caboGeral} mm²\nDisjuntor: ${resultadoDemanda?.disjuntorGeral} A\n\n`;
-
-      const disjGeral = resultadoDemanda?.disjuntorGeral || 0;
-      const idrAmp =
-        [25, 40, 63, 80, 100, 125].find((i) => i >= disjGeral) || disjGeral;
-      const tipoIdr = resultadoQDC?.ehTrifasico ? "Tetrapolar" : "Bipolar";
-      const qtdDps = resultadosRamal
-        ? resultadosRamal.qtdVias
-        : resultadoQDC?.ehTrifasico
-          ? 4
-          : tensaoGeral === 220
-            ? 3
-            : 2;
-
-      texto += `🛡️ PROTEÇÃO GERAL RECOMENDADA (QDC):\n`;
-      texto += `IDR: ${idrAmp}A ${tipoIdr} (30mA)\n`;
-      texto += `DPS: ${qtdDps}x ${tensaoGeral <= 127 ? "175V" : "275V"} (Classe II)\n\n`;
     }
 
     if (resultadosRamal) {
@@ -336,10 +185,6 @@ export default function TelaQuadro() {
     }
   };
 
-  const potenciaParaRamal = resultadoDemanda
-    ? resultadoDemanda.potenciaTotalVA
-    : totalBrutoAplicado;
-
   return (
     <View style={styles.wrapperWeb}>
       <CustomHeader title="Quadro Geral" />
@@ -348,18 +193,91 @@ export default function TelaQuadro() {
         style={styles.container}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 140 }}
       >
+        <View style={styles.cardReservaGeral}>
+          <View style={styles.reservaHeader}>
+            <FontAwesome5
+              name="bolt"
+              size={18}
+              color={reservaAplicada ? "#059669" : "#d97706"}
+            />
+            <Text style={styles.tituloReserva}>Reserva Futura (NBR 5410)</Text>
+          </View>
+          <Text style={styles.textoReserva}>
+            Aplica uma margem de segurança de +30% na potência bruta para
+            garantir ampliações futuras sem sobrecarga.
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.botaoToggleReserva,
+              reservaAplicada && styles.botaoToggleReservaAtivo,
+            ]}
+            onPress={() => setReservaAplicada(!reservaAplicada)}
+          >
+            <Text
+              style={[
+                styles.textoToggleReserva,
+                reservaAplicada && styles.textoToggleReservaAtivo,
+              ]}
+            >
+              {reservaAplicada
+                ? "✅ Reserva de 30% Ativada"
+                : "✨ Adicionar +30% de Reserva"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {projetoTemDados && (
+          <View style={{ marginBottom: 12 }}>
+            {exigeTrifasico ? (
+              <View style={styles.alertaConcessionariaCritico}>
+                <FontAwesome5
+                  name="exclamation-triangle"
+                  size={16}
+                  color="#991b1b"
+                />
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={styles.tituloAlertaCritico}>
+                    Atenção: Padrão Trifásico Exigido
+                  </Text>
+                  <Text style={styles.textoAlertaCritico}>
+                    A carga atual ({Math.round(totalBrutoAplicado)} VA)
+                    ultrapassa o limite de 25kVA. Segundo a{" "}
+                    {distribuidora || "concessionária local"}, o dimensionamento
+                    foi ajustado automaticamente para o sistema Trifásico.
+                  </Text>
+                </View>
+              </View>
+            ) : totalBrutoAplicado > limiteBifasico ? (
+              <View style={styles.alertaConcessionariaAviso}>
+                <FontAwesome5 name="info-circle" size={16} color="#0369a1" />
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={styles.tituloAlertaAviso}>
+                    Recomendação da {distribuidora || "Concessionária"}
+                  </Text>
+                  <Text style={styles.textoAlertaAviso}>
+                    A carga está entre 12kVA e 25kVA (
+                    {Math.round(totalBrutoAplicado)} VA). Recomenda-se homologar
+                    um padrão de entrada Bifásico ou Trifásico na
+                    concessionária.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        )}
+
         <CardVerificacaoRamal
-          potenciaTotal={potenciaParaRamal}
+          potenciaTotal={totalBrutoAplicado}
           potenciaOriginal={totalBrutoOriginal}
           tensaoGeral={tensaoGeral}
           reservaAplicada={reservaAplicada}
-          onToggleReserva={handleToggleReserva}
+          onToggleReserva={setReservaAplicada}
           onCalcularRamal={setResultadosRamal}
         />
 
         {projetoTemDados && (
           <View style={styles.quadroContainer}>
-            <Text style={styles.subtitulo}>📋 Relação de Cômodos e TUEs</Text>
+            <Text style={styles.subtitulo}>📋 Relação de Cômodos</Text>
             <View style={styles.cardLista}>
               {comodos.map((c) => (
                 <View key={c.id} style={styles.itemCircuito}>
@@ -374,7 +292,6 @@ export default function TelaQuadro() {
                           : 0.85;
                         potVA = potTotal / fp;
                       }
-
                       const dim = obterDimensionamentoCircuito(
                         d.tipo,
                         potVA,
@@ -411,28 +328,11 @@ export default function TelaQuadro() {
             </View>
 
             {resultadoQDC && resultadoDemanda && (
-              <View>
-                {resultadoQDC.ehTrifasico && totalBrutoAplicado > 25000 && (
-                  <View style={styles.alertaTrifasico}>
-                    <Text style={styles.tituloAlerta}>
-                      ⚠️ Alteração para Trifásico
-                    </Text>
-                    <Text style={styles.textoAlerta}>
-                      A carga total atingiu {Math.round(totalBrutoAplicado)} VA
-                      (acima do limite da concessionária). O dimensionamento
-                      geral foi ajustado automaticamente para a rede Trifásica (
-                      {tensaoGeral === 127 ? "220V" : "380V"} entre fases) para
-                      evitar desequilíbrio.
-                    </Text>
-                  </View>
-                )}
-
-                <CardResumoQuadro
-                  resultadoQDC={resultadoQDC}
-                  resultadoDemanda={resultadoDemanda}
-                  concessionaria={distribuidora}
-                />
-              </View>
+              <CardResumoQuadro
+                resultadoQDC={resultadoQDC}
+                resultadoDemanda={resultadoDemanda}
+                concessionaria={distribuidora}
+              />
             )}
           </View>
         )}
@@ -450,7 +350,6 @@ export default function TelaQuadro() {
                 📄 Gerar Memorial em PDF
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.botaoExportar}
               onPress={handleCompartilharRelatorio}
@@ -475,6 +374,78 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
+  cardReservaGeral: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  reservaHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  tituloReserva: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginLeft: 8,
+  },
+  textoReserva: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  botaoToggleReserva: {
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  botaoToggleReservaAtivo: {
+    backgroundColor: "#dcfce7",
+    borderColor: "#10b981",
+  },
+  textoToggleReserva: { fontSize: 14, fontWeight: "bold", color: "#4b5563" },
+  textoToggleReservaAtivo: { color: "#059669" },
+  alertaConcessionariaAviso: {
+    backgroundColor: "#f0f9ff",
+    borderColor: "#bae6fd",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  tituloAlertaAviso: {
+    color: "#0369a1",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
+  textoAlertaAviso: { color: "#0c4a6e", fontSize: 13, lineHeight: 18 },
+  alertaConcessionariaCritico: {
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  tituloAlertaCritico: {
+    color: "#b91c1c",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
+  textoAlertaCritico: { color: "#7f1d1d", fontSize: 13, lineHeight: 18 },
   quadroContainer: { paddingBottom: 10 },
   subtitulo: {
     fontSize: 16,
@@ -506,27 +477,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 4 },
-
-  alertaTrifasico: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fcd34d",
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  tituloAlerta: {
-    color: "#d97706",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  textoAlerta: {
-    color: "#92400e",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
   botoesAcaoContainer: { marginTop: 10 },
   botaoExportar: {
     backgroundColor: "#10b981",

@@ -13,29 +13,10 @@ import CardResultado from "../components/ui/CardResultado";
 import CustomHeader from "../components/ui/CustomHeader";
 import FormTue from "../components/ui/FormTue";
 import { useData } from "../context/DataContext";
-import { dimensionarTUE } from "../utils/calculations";
-
-const obterDimensionamentoCircuito = (
-  tipo: string,
-  potenciaTotal: number,
-  tensao: number,
-) => {
-  const corrente = potenciaTotal / tensao;
-  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
-  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
-
-  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
-  let disj = disjuntores.find((d) => d >= corrente) || 100;
-  let cabo = "2.5";
-  if (disj > 20 && disj <= 25) cabo = "4";
-  else if (disj > 25 && disj <= 32) cabo = "6";
-  else if (disj > 32 && disj <= 40) cabo = "10";
-  else if (disj > 40 && disj <= 50) cabo = "10";
-  else if (disj > 50 && disj <= 63) cabo = "16";
-  else if (disj > 63) cabo = "25";
-
-  return { cabo, disj };
-};
+import {
+  dimensionarTUE,
+  obterDimensionamentoCircuito,
+} from "../utils/calculations";
 
 export default function TelaTues() {
   const { adicionarComodo, removerComodo, tokenReset, comodos, tensaoGeral } =
@@ -84,7 +65,6 @@ export default function TelaTues() {
     setResultadoTue(null);
   };
 
-  // 💡 FUNÇÃO DE ALERTA ANTES DE DELETAR O TUE
   const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
     if (Platform.OS === "web") {
       if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
@@ -144,10 +124,7 @@ export default function TelaTues() {
                   titulo={`⚡ Circuito Dedicado - ${resultadoTue.nome}`}
                   corBorda="#7c3aed"
                   items={[
-                    {
-                      label: "Potência",
-                      valor: `${resultadoTue.potencia} W`,
-                    },
+                    { label: "Potência", valor: `${resultadoTue.potencia} W` },
                     {
                       label: "Corrente",
                       valor: `${resultadoTue.correnteProjeto} A`,
@@ -180,7 +157,6 @@ export default function TelaTues() {
               <View key={comodo.id} style={styles.cardComodoItem}>
                 <View style={styles.headerComodo}>
                   <Text style={styles.nomeComodo}>{comodo.nome}</Text>
-                  {/* 💡 TROCADA A CHAMADA DIRETA PARA O ALERTA */}
                   <TouchableOpacity
                     onPress={() =>
                       handleRemoverComodoAlerta(comodo.id, comodo.nome)
@@ -288,9 +264,5 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   botaoRemover: { fontSize: 14, paddingLeft: 10, paddingVertical: 5 },
-  textoDispositivo: {
-    fontSize: 13,
-    color: "#6b7280",
-    marginTop: 4,
-  },
+  textoDispositivo: { fontSize: 13, color: "#6b7280", marginTop: 4 },
 });

@@ -2,6 +2,7 @@
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Alert, Platform } from "react-native";
+import { obterDimensionamentoCircuito } from "./calculations"; // 💡 Importado do motor central
 
 interface PDFData {
   comodos: any[];
@@ -12,29 +13,6 @@ interface PDFData {
   resultadosRamal: any;
   tipoImovel: string;
 }
-
-// 💡 Função auxiliar para o PDF
-const obterDimensionamentoCircuito = (
-  tipo: string,
-  potenciaTotal: number,
-  tensao: number,
-) => {
-  const corrente = potenciaTotal / tensao;
-  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
-  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
-
-  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
-  let disj = disjuntores.find((d) => d >= corrente) || 100;
-  let cabo = "2.5";
-  if (disj > 20 && disj <= 25) cabo = "4";
-  else if (disj > 25 && disj <= 32) cabo = "6";
-  else if (disj > 32 && disj <= 40) cabo = "10";
-  else if (disj > 40 && disj <= 50) cabo = "10";
-  else if (disj > 50 && disj <= 63) cabo = "16";
-  else if (disj > 63) cabo = "25";
-
-  return { cabo, disj };
-};
 
 export const gerarMemorialPDF = async (data: PDFData) => {
   const {
@@ -54,7 +32,6 @@ export const gerarMemorialPDF = async (data: PDFData) => {
       const unidade = d.tipo === "tue" ? "W" : "VA";
       const dim = obterDimensionamentoCircuito(d.tipo, potTotal, tensaoGeral);
 
-      // 💡 Adicionadas as colunas de Fio e Disjuntor na Tabela
       linhasComodosHtml += `
         <tr>
           <td><strong>${c.nome}</strong></td>
@@ -106,7 +83,6 @@ export const gerarMemorialPDF = async (data: PDFData) => {
     `;
   }
 
-  // 💡 Lógica do IDR e DPS para o PDF
   let blocoProtecaoHtml = "";
   if (resultadoDemanda && resultadoQDC) {
     const disjGeral = resultadoDemanda.disjuntorGeral;
@@ -252,7 +228,6 @@ export const gerarMemorialPDF = async (data: PDFData) => {
               <th>Circuito / Equipamento</th>
               <th style="text-align: center;">Qtd</th>
               <th style="text-align: right;">Potência Acumulada</th>
-              <!-- 💡 Novas colunas na tabela -->
               <th style="text-align: center;">Cabo Ideal</th>
               <th style="text-align: center;">Disjuntor</th>
             </tr>

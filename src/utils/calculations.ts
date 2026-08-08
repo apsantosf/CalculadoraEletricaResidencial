@@ -191,7 +191,6 @@ export const sugerirBitolaPorQueda = (
   return bitolaIdeal || cabosPossiveis[cabosPossiveis.length - 1];
 };
 
-// 💡 CORREÇÃO DO BUG DA DISTÂNCIA ZERO: Agora o cálculo flui mesmo sem distância preenchida
 export const processarTrechoRamal = (
   distancia: number,
   corrente: number,
@@ -203,21 +202,16 @@ export const processarTrechoRamal = (
   if (corrente <= 0)
     return { bitola: caboMinimo, disjuntor: 0, classificacao: "N/A" };
 
-  // Garante que não ocorrem falhas matemáticas se a distância for nula
   const distSegura = isNaN(distancia) || distancia < 0 ? 0 : distancia;
-
   const calculo = sugerirBitolaPorQueda(distSegura, corrente, tensao);
   const bitolaAjustada = Math.max(calculo.bitola, caboMinimo);
 
-  // Encontra a capacidade do cabo que foi efetivamente escolhido
   const caboFinalInfo =
     tabelaCondutores.find((c) => c.bitola === bitolaAjustada) || calculo;
-
   const disjuntor = encontrarDisjuntorComercial(
     corrente,
     caboFinalInfo.capacidadeCorrente,
   );
-
   const classificacao = determinarTipoFornecimento(
     disjuntor,
     tensao,
@@ -304,7 +298,6 @@ export const dimensionarTUE = (
   };
 };
 
-// 💡 SINCRONIA: Motor verifica o limite de VA e o limite de Amperes da Distribuidora
 export const calcularAlimentadorGeral = (dados: {
   potenciaIlumTugVA: number;
   potenciasTueWatts: number[];
@@ -318,7 +311,6 @@ export const calcularAlimentadorGeral = (dados: {
   const somaTues = dados.potenciasTueWatts.reduce((acc, curr) => acc + curr, 0);
   const potenciaTotalVA = dados.potenciaIlumTugVA + somaTues;
 
-  // Descobre qual seria a corrente e o disjuntor se não existisse limite
   const correnteTeste = potenciaTotalVA / dados.tensao;
   let disjTeste = 250;
   for (const c of tabelaCondutores) {
@@ -331,7 +323,6 @@ export const calcularAlimentadorGeral = (dados: {
     }
   }
 
-  // Verifica se violou as regras da Concessionária (VA ou Disjuntor Máximo)
   const estourouVA = potenciaTotalVA > regras.limiteBiVA;
   const estourouDisjuntor =
     regras.disjuntorMaxBi > 0 && disjTeste > regras.disjuntorMaxBi;
@@ -371,4 +362,29 @@ export const calcularAlimentadorGeral = (dados: {
     disjuntorGeral,
     ehTrifasico,
   };
+};
+
+// 💡 FUNÇÃO CENTRALIZADA DE DIMENSIONAMENTO RÁPIDO (Agora no lugar certo!)
+export const obterDimensionamentoCircuito = (
+  tipo: string,
+  potenciaTotal: number,
+  tensao: number,
+) => {
+  const t = tensao || 220;
+  const corrente = potenciaTotal / t;
+
+  if (tipo === "iluminacao") return { cabo: "1.5", disj: 10 };
+  if (tipo === "tug") return { cabo: "2.5", disj: corrente > 16 ? 20 : 16 };
+
+  const disjuntores = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100];
+  let disj = disjuntores.find((d) => d >= corrente) || 100;
+  let cabo = "2.5";
+  if (disj > 20 && disj <= 25) cabo = "4";
+  else if (disj > 25 && disj <= 32) cabo = "6";
+  else if (disj > 32 && disj <= 40) cabo = "10";
+  else if (disj > 40 && disj <= 50) cabo = "10";
+  else if (disj > 50 && disj <= 63) cabo = "16";
+  else if (disj > 63) cabo = "25";
+
+  return { cabo, disj };
 };
