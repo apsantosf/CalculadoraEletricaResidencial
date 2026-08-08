@@ -3,7 +3,7 @@ import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
 import {
   Alert,
-  Keyboard, // 💡 Importado para recolher o teclado e evitar crashes de layout
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -35,7 +35,6 @@ const TEMPLATES_COMODOS: Record<string, string> = {
   Corredor: "corredor",
 };
 
-// 💡 FUNÇÃO BLINDADA: Previne divisões por zero (fallback para 220)
 const obterDimensionamentoCircuito = (
   tipo: string,
   potenciaTotal: number,
@@ -71,7 +70,7 @@ export default function ScreenComodos() {
   const [resultadoPrevio, setResultadoPrevio] = useState<any>(null);
 
   const mostrarInfoAreaPerimetro = () => {
-    Keyboard.dismiss(); // Fecha o teclado caso esteja aberto
+    Keyboard.dismiss();
     const message =
       "Perímetro é a medida do contorno de uma figura geométrica, medido em metros (m).\n\n" +
       "Área (m²) é a medida da superfície (o espaço interno) de uma figura plana. O metro quadrado (m²) representa um quadrado com 1 metro de largura e 1 metro de altura.\n\n" +
@@ -90,7 +89,6 @@ export default function ScreenComodos() {
   };
 
   const gerarDispositivos = () => {
-    // 💡 BLINDAGEM: Converte estritamente para String antes de fazer replace para evitar crashes
     const numArea = parseFloat(String(area).replace(",", ".")) || 0;
     const numPerimetro = parseFloat(String(perimetro).replace(",", ".")) || 0;
 
@@ -139,8 +137,7 @@ export default function ScreenComodos() {
   };
 
   const handleDimensionar = () => {
-    Keyboard.dismiss(); // 💡 Evita o crash de redimensionamento do Android
-
+    Keyboard.dismiss();
     if (!area || !perimetro) {
       const msg = "Preencha a Área e o Perímetro para dimensionar.";
       Platform.OS === "web" ? window.alert(msg) : Alert.alert("Atenção", msg);
@@ -151,8 +148,7 @@ export default function ScreenComodos() {
   };
 
   const executarAdicao = () => {
-    Keyboard.dismiss(); // 💡 Evita o crash de redimensionamento do Android
-
+    Keyboard.dismiss();
     if (!area || !perimetro) {
       const msg = "Preencha a Área e o Perímetro antes de adicionar.";
       Platform.OS === "web" ? window.alert(msg) : Alert.alert("Atenção", msg);
@@ -174,7 +170,6 @@ export default function ScreenComodos() {
     setResultadoPrevio(null);
   };
 
-  // 💡 INSERIDO AQUI: Função de confirmação antes de deletar
   const handleRemoverComodoAlerta = (comodoId: string, nomeComodo: string) => {
     if (Platform.OS === "web") {
       if (window.confirm(`Tem certeza que vai excluir "${nomeComodo}"?`))
@@ -208,16 +203,20 @@ export default function ScreenComodos() {
 
       <ScrollView
         contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled" // Permite fechar o teclado ao tocar fora
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.cardForm}>
           <Text style={styles.labelInput}>
             Sugestões de Ambientes (Normativo NBR 5410)
           </Text>
+
+          {/* 💡 PICKER AJUSTADO AO PADRÃO */}
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={tipoAmbiente}
               style={styles.picker}
+              mode="dropdown"
+              dropdownIconColor="#6b7280"
               onValueChange={(itemValue) => {
                 setTipoAmbiente(itemValue);
                 setNomeLivre(itemValue);
@@ -345,7 +344,6 @@ export default function ScreenComodos() {
           <View key={comodo.id} style={styles.cardComodoItem}>
             <View style={styles.headerComodo}>
               <Text style={styles.nomeComodo}>{comodo.nome}</Text>
-              {/* 💡 INSERIDO AQUI: A chamada para a nova função de confirmação */}
               <TouchableOpacity
                 onPress={() =>
                   handleRemoverComodoAlerta(comodo.id, comodo.nome)
@@ -413,15 +411,28 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 15,
   },
+  // 💡 ESTILO ATUALIZADO DO PICKER
   pickerContainer: {
-    backgroundColor: "#fdfbea",
+    backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
     marginBottom: 12,
     overflow: "hidden",
   },
-  picker: { height: 50, width: "100%", color: "#374151" },
+  picker: {
+    height: 50,
+    width: "100%",
+    color: "#1f2937",
+    fontWeight: "bold",
+    ...Platform.select({
+      web: {
+        outlineStyle: "none",
+        backgroundColor: "transparent",
+        border: "none",
+      } as any,
+    }),
+  },
   headerDica: {
     flexDirection: "row",
     alignItems: "center",
@@ -497,7 +508,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: `6`,
   },
   nomeComodo: { fontSize: 15, fontWeight: "bold", color: "#374151" },
   botaoRemover: { fontSize: 14 },

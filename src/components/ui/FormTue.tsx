@@ -2,6 +2,7 @@
 import { Picker } from "@react-native-picker/picker";
 import { useState } from "react";
 import {
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -131,24 +132,25 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 6 },
   pickerContainer: {
-    backgroundColor: "#fefce8",
-    borderWidth: 2,
-    borderColor: "#3b82f6",
-    borderRadius: 8,
-    marginBottom: 14,
-    overflow: "hidden",
-  },
-  picker: { height: 50, color: "#1e3a8a", backgroundColor: "#fefce8" },
-  inputNome: {
     backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
-    padding: 12,
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#1F2937",
-    marginBottom: 14,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+    color: "#1f2937",
+    fontWeight: "bold",
+    ...Platform.select({
+      web: {
+        outlineStyle: "none",
+        backgroundColor: "transparent",
+        border: "none",
+      } as any,
+    }),
   },
   input: {
     backgroundColor: "#f9fafb",

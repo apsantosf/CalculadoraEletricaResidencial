@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
-import { useData } from "../context/DataContext"; // 👈 Caminho corrigido para apenas um nível acima
+import { useData } from "../context/DataContext";
 import { MATERIAIS_PADRAO, MaterialBase } from "../data/tabelaMateriais";
 import { obterPrecosLocais, salvarPrecosLocais } from "../utils/storagePrecos";
 
@@ -190,7 +190,6 @@ export default function ScreenOrcamento() {
     }, [comodos, tues]),
   );
 
-  // 🛡️ MÁSCARA: Bloqueia letras na quantidade
   const atualizarQuantidade = async (id: string, valor: string) => {
     const limpo = valor.replace(/[^0-9]/g, "");
     const num = parseInt(limpo) || 0;
@@ -217,7 +216,6 @@ export default function ScreenOrcamento() {
     setModalVisivel(true);
   };
 
-  // 🛡️ MÁSCARA: Bloqueia letras no preço editado
   const atualizarPrecoEditado = (id: string, novoValor: string) => {
     const limpo = novoValor.replace(/[^0-9,]/g, "");
     const valorNumerico = parseFloat(limpo.replace(",", ".")) || 0;
@@ -336,6 +334,7 @@ export default function ScreenOrcamento() {
         onRequestClose={() => setModalVisivel(false)}
       >
         <View style={styles.modalOverlay}>
+          {/* 💡 MODAL COM MEDIDAS TRAVADAS E CENTRALIZADAS NA WEB */}
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <View style={styles.grupoEdicaoCidade}>
@@ -517,10 +516,13 @@ const styles = StyleSheet.create({
   },
   textoTotalLabel: { color: "#fff", fontSize: 16, fontWeight: "600" },
   textoTotalValor: { color: "#fff", fontSize: 20, fontWeight: "bold" },
+
+  // 💡 ADAPTAÇÃO DO MODAL PARA WEB E MOBILE
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+    justifyContent: Platform.OS === "web" ? "center" : "flex-end",
+    alignItems: "center",
   },
   modalContainer: {
     backgroundColor: "#fff",
@@ -529,6 +531,14 @@ const styles = StyleSheet.create({
     height: "65%",
     padding: 20,
     paddingBottom: 30,
+    ...Platform.select({
+      web: {
+        maxWidth: 450,
+        width: "100%",
+        alignSelf: "center",
+        borderRadius: 20, // Na web fica com bordas arredondadas por igual
+      },
+    }),
   },
   modalHeader: {
     flexDirection: "row",

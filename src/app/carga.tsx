@@ -1,12 +1,12 @@
 // src/app/carga.tsx
 import { Picker } from "@react-native-picker/picker";
 import {
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
 import { useData } from "../context/DataContext";
@@ -150,24 +150,63 @@ export default function ScreenCarga() {
           </View>
         </View>
 
-        {/* DISTRIBUIDORA */}
+        {/* DISTRIBUIDORA - BOTÃO AZUL COM LISTA LEGÍVEL */}
         <View style={styles.cardBox}>
           <Text style={styles.cardTitle}>Distribuidora de Energia (Norma)</Text>
-          <View style={styles.pickerContainer}>
+          <View style={styles.pickerContainerAtivo}>
             <Picker
               selectedValue={distribuidora}
               onValueChange={(itemValue) => setDistribuidora(itemValue)}
-              style={styles.pickerStyle}
+              style={styles.pickerStyleAtivo}
+              mode="dropdown"
+              dropdownIconColor="#ffffff"
             >
-              <Picker.Item label="CPFL (SP)" value="CPFL" />
-              <Picker.Item label="ENEL (SP/RJ/CE)" value="ENEL" />
-              <Picker.Item label="CEMIG (MG)" value="CEMIG" />
-              <Picker.Item label="COPEL (PR)" value="COPEL" />
-              <Picker.Item label="LIGHT (RJ)" value="LIGHT" />
-              <Picker.Item label="CELESC (SC)" value="CELESC" />
-              <Picker.Item label="EQUATORIAL" value="EQUATORIAL" />
-              <Picker.Item label="ENERGISA" value="ENERGISA" />
-              <Picker.Item label="NEOENERGIA" value="NEOENERGIA" />
+              {/* 💡 Forçamos a cor preta em cada item para garantir visibilidade perfeita na Web */}
+              <Picker.Item
+                label="CPFL (SP)"
+                value="CPFL"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="ENEL (SP/RJ/CE)"
+                value="ENEL"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="CEMIG (MG)"
+                value="CEMIG"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="COPEL (PR)"
+                value="COPEL"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="LIGHT (RJ)"
+                value="LIGHT"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="CELESC (SC)"
+                value="CELESC"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="EQUATORIAL"
+                value="EQUATORIAL"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="ENERGISA"
+                value="ENERGISA"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
+              <Picker.Item
+                label="NEOENERGIA"
+                value="NEOENERGIA"
+                color={Platform.OS === "web" ? "#1f2937" : undefined}
+              />
             </Picker>
           </View>
         </View>
@@ -221,17 +260,18 @@ const styles = StyleSheet.create({
   btnToggleText: { fontSize: 13, fontWeight: "600", color: "#4b5563" },
   btnToggleTextAtivo: { color: "#ffffff" },
 
-  pickerContainer: {
+  // 💡 ESTILO DO PICKER PADRONIZADO COM O BOTÃO AZUL ATIVO
+  pickerContainerAtivo: {
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#2563eb",
     borderRadius: 8,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#2563eb", // Fundo azul idêntico aos botões ativos
     overflow: "hidden",
   },
-  pickerStyle: {
+  pickerStyleAtivo: {
     width: "100%",
     height: 50,
-    color: "#ffffff",
+    color: "#ffffff", // Texto branco em negrito
     fontWeight: "bold",
     ...Platform.select({
       web: {
