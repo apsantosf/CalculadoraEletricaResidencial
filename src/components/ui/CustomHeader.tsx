@@ -1,14 +1,16 @@
 // src/components/ui/CustomHeader.tsx
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   BackHandler,
   Image,
   Modal,
   Platform,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -18,35 +20,62 @@ interface CustomHeaderProps {
   title: string;
 }
 
+type FluxoModal = "fechado" | "perguntar_salvar" | "pedir_nome";
+
 export default function CustomHeader({ title }: CustomHeaderProps) {
-  const { zerarProjeto, tensaoGeral } = useData();
+  const { zerarProjeto, tensaoGeral, salvarProjetoAtual, nomeProjetoAtual } =
+    useData();
   const appVersion = Constants.expoConfig?.version || "1.0.0";
 
-  // Controle de exibição do nosso Modal Customizado
-  const [modalVisible, setModalVisible] = useState(false);
+  const [etapaModal, setEtapaModal] = useState<FluxoModal>("fechado");
+  const [nomeInput, setNomeInput] = useState("");
 
-  const handleNovoProjeto = () => {
+  // Preenche o input automaticamente se já houver um nome salvo
+  useEffect(() => {
+    if (etapaModal === "pedir_nome") {
+      setNomeInput(nomeProjetoAtual || "");
+    }
+  }, [etapaModal, nomeProjetoAtual]);
+
+  const executarAcaoFinal = (acao: "novo" | "sair") => {
     zerarProjeto();
-    setModalVisible(false);
-    router.replace("/");
+    setEtapaModal("fechado");
+
+    if (acao === "novo") {
+      router.replace("/");
+    } else {
+      if (Platform.OS === "android") {
+        BackHandler.exitApp();
+      } else if (Platform.OS === "web") {
+        window.close();
+      } else {
+        router.replace("/");
+      }
+    }
   };
 
-  const handleSairDoApp = () => {
-    zerarProjeto(); // Limpa os dados primeiro
-    setModalVisible(false);
-
-    if (Platform.OS === "android") {
-      BackHandler.exitApp(); // Fecha o app no celular Android
-    } else if (Platform.OS === "web") {
-      window.close(); // Tenta fechar a aba no navegador Web
-    } else {
-      router.replace("/"); // Retorno de segurança
+  const handleSalvarEContinuar = async () => {
+    if (nomeInput.trim() === "") {
+      Platform.OS === "web"
+        ? window.alert("Por favor, digite um nome para o projeto.")
+        : Alert.alert("Atenção", "Por favor, digite um nome para o projeto.");
+      return;
     }
+
+    // 1. Salva o projeto
+    await salvarProjetoAtual(nomeInput);
+
+    // 2. Alerta de sucesso
+    Platform.OS === "web"
+      ? window.alert(`Projeto "${nomeInput}" salvo com sucesso!`)
+      : Alert.alert("Sucesso", `Projeto "${nomeInput}" salvo com sucesso!`);
+
+    // 3. 💡 CORREÇÃO: Fecha o modal completamente para continuar trabalhando
+    setEtapaModal("fechado");
   };
 
   return (
     <View style={styles.headerContainer}>
-      {/* Lado Esquerdo: Imagem e Título */}
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <Image
           source={require("../../../assets/images/capa-app.png")}
@@ -58,17 +87,13 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
         </Text>
       </View>
 
-      {/* Lado Direito: Badge Voltagem, Versão e Botão X */}
       <View style={styles.rightContainer}>
         <View style={styles.badgeTensao}>
           <Text style={styles.textoBadgeTensao}>⚡ {tensaoGeral}V</Text>
         </View>
-
         <Text style={styles.versionText}>v{appVersion}</Text>
-
-        {/* Aciona o Modal em vez do Alert nativo */}
         <TouchableOpacity
-          onPress={() => setModalVisible(true)}
+          onPress={() => setEtapaModal("perguntar_salvar")}
           style={styles.botaoSair}
         >
           <Text style={{ fontSize: 18, fontWeight: "bold", color: "#374151" }}>
@@ -77,44 +102,96 @@ export default function CustomHeader({ title }: CustomHeaderProps) {
         </TouchableOpacity>
       </View>
 
-      {/* 💡 MODAL CUSTOMIZADO (Funciona igual em Web e Mobile) */}
       <Modal
         animationType="fade"
         transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        visible={etapaModal !== "fechado"}
+        onRequestClose={() => setEtapaModal("fechado")}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Atenção</Text>
-            <Text style={styles.modalText}>
-              Deseja realmente iniciar um Novo Projeto? Todos os dados atuais
-              serão perdidos. Ou deseja encerrar o aplicativo?
-            </Text>
+            {etapaModal === "perguntar_salvar" && (
+              <>
+                <Text style={styles.modalTitle}>Atenção</Text>
+                <Text style={styles.modalText}>
+                  Deseja salvar o projeto atual antes de sair ou iniciar um
+                  novo?
+                </Text>
 
-            {/* Opção 1: Iniciar Novo Projeto */}
-            <TouchableOpacity
-              style={[styles.btn, styles.btnNovo]}
-              onPress={handleNovoProjeto}
-            >
-              <Text style={styles.btnTextNovo}>Iniciar Novo Projeto</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnSalvar]}
+                  onPress={() => setEtapaModal("pedir_nome")}
+                >
+                  <Text style={styles.btnTextBranco}>
+                    {nomeProjetoAtual
+                      ? "💾 Atualizar Projeto Salvo"
+                      : "💾 Sim, Salvar Projeto"}
+                  </Text>
+                </TouchableOpacity>
 
-            {/* Opção 2: Encerrar Aplicativo */}
-            <TouchableOpacity
-              style={[styles.btn, styles.btnSair]}
-              onPress={handleSairDoApp}
-            >
-              <Text style={styles.btnTextSair}>Encerrar Aplicativo</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnNovo]}
+                  onPress={() => executarAcaoFinal("novo")}
+                >
+                  <Text style={styles.btnTextBranco}>
+                    📄 Novo Projeto (Sem Salvar)
+                  </Text>
+                </TouchableOpacity>
 
-            {/* Opção 3: Cancelar */}
-            <TouchableOpacity
-              style={[styles.btn, styles.btnCancel]}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.btnTextCancel}>Cancelar</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnSair]}
+                  onPress={() => executarAcaoFinal("sair")}
+                >
+                  <Text style={styles.btnTextBranco}>
+                    🚪 Encerrar App (Sem Salvar)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnCancel]}
+                  onPress={() => setEtapaModal("fechado")}
+                >
+                  <Text style={styles.btnTextCancel}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {etapaModal === "pedir_nome" && (
+              <>
+                <Text style={styles.modalTitle}>
+                  {nomeProjetoAtual
+                    ? "Atualizar ou Salvar Como"
+                    : "Salvar Projeto"}
+                </Text>
+                <Text style={styles.modalText}>
+                  Dê um nome para identificar este projeto:
+                </Text>
+
+                {/* 💡 CORREÇÃO: Remoção do autoFocus para evitar travamento na Web */}
+                <TextInput
+                  style={styles.inputNome}
+                  placeholder="Ex: Casa do Sr. João"
+                  value={nomeInput}
+                  onChangeText={setNomeInput}
+                />
+
+                <View style={styles.rowButtons}>
+                  <TouchableOpacity
+                    style={[styles.btnHalf, styles.btnCancel]}
+                    onPress={() => setEtapaModal("perguntar_salvar")}
+                  >
+                    <Text style={styles.btnTextCancel}>Voltar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.btnHalf, styles.btnSalvar]}
+                    onPress={handleSalvarEContinuar}
+                  >
+                    <Text style={styles.btnTextBranco}>Salvar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -137,10 +214,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e5e7eb",
     marginTop: Platform.OS === "android" ? 24 : 0,
   },
-  rightContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  rightContainer: { flexDirection: "row", alignItems: "center" },
   badgeTensao: {
     backgroundColor: "#fffbeb",
     borderWidth: 1,
@@ -150,26 +224,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 10,
   },
-  textoBadgeTensao: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#d97706",
-  },
+  textoBadgeTensao: { fontSize: 11, fontWeight: "bold", color: "#d97706" },
   versionText: {
     fontSize: 11,
     color: "#6b7280",
     fontWeight: "600",
     marginRight: 8,
   },
-  botaoSair: {
-    padding: 8,
-    borderRadius: 4,
-  },
+  botaoSair: { padding: 8, borderRadius: 4 },
 
-  // 💡 ESTILOS DO MODAL CUSTOMIZADO
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)", // Fundo escuro transparente
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -179,11 +245,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 24,
-    elevation: 5, // Sombra no Android
-    shadowColor: "#000", // Sombra no iOS/Web
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    elevation: 5,
   },
   modalTitle: {
     fontSize: 20,
@@ -195,40 +257,46 @@ const styles = StyleSheet.create({
   modalText: {
     fontSize: 15,
     color: "#4b5563",
-    marginBottom: 24,
+    marginBottom: 20,
     lineHeight: 22,
     textAlign: "center",
   },
+
+  inputNome: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#f9fafb",
+    marginBottom: 20,
+    width: "100%",
+  },
+
   btn: {
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
     marginBottom: 10,
+    paddingHorizontal: 10,
   },
-  btnNovo: {
-    backgroundColor: "#208AEF",
+  rowButtons: { flexDirection: "row", justifyContent: "space-between" },
+  btnHalf: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    width: "48%",
   },
-  btnTextNovo: {
-    color: "#ffffff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  btnSair: {
-    backgroundColor: "#ef4444",
-  },
-  btnTextSair: {
-    color: "#ffffff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+
+  btnSalvar: { backgroundColor: "#10b981" },
+  btnNovo: { backgroundColor: "#3b82f6" },
+  btnSair: { backgroundColor: "#ef4444" },
+  btnTextBranco: { color: "#ffffff", fontWeight: "bold", fontSize: 15 },
+
   btnCancel: {
     backgroundColor: "#f3f4f6",
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
-  btnTextCancel: {
-    color: "#4b5563",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+  btnTextCancel: { color: "#4b5563", fontWeight: "bold", fontSize: 15 },
 });

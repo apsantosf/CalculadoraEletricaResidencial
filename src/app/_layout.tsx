@@ -1,10 +1,8 @@
 // src/app/_layout.tsx
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // 💡 IMPORTAÇÃO ADICIONADA
 import { Slot, usePathname, useRouter } from "expo-router";
-import { useEffect, useState } from "react"; // 💡 IMPORTAÇÃO ADICIONADA
 import {
-  LogBox,
+  Alert,
   Platform,
   StyleSheet,
   Text,
@@ -15,50 +13,71 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import ModalTermoResponsabilidade from "../components/ui/ModalTermoResponsabilidade"; // 💡 IMPORTAÇÃO ADICIONADA
 import { DataProvider, useData } from "../context/DataContext";
 
-LogBox.ignoreLogs(["The Flipper native module is not available"]);
-
-// Barra customizada flutuante e adaptada à área segura
 function BarraInferiorFixa() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
 
-  // 💡 Puxamos os dados para saber se o projeto tem algum item
-  const { comodos, tues } = useData();
-  const temProjeto =
-    (comodos && comodos.length > 0) || (tues && tues.length > 0);
+  // 💡 Puxamos os cômodos para saber se o projeto está vazio
+  const { comodos } = useData();
+  const projetoVazio = comodos.length === 0;
 
-  // Mede o respiro inferior de forma inteligente
   const bottomOffset =
     Platform.OS === "android" ? Math.max(insets.bottom + 16, 24) : 24;
 
-  // 💡 NOVA ESTRUTURA DE ABAS ATUALIZADA (Agora com Materiais)
+  // 💡 CHAVES ATUALIZADAS (carga.tsx, tue.tsx, orcamento.tsx)
   const tabs = [
-    { key: "/", title: "Início", icon: "home", pack: "fontawesome" },
+    {
+      key: "/",
+      title: "Início",
+      icon: "home",
+      pack: "fontawesome",
+      alwaysEnabled: true,
+    },
+    {
+      key: "/carga",
+      title: "Carga",
+      icon: "clipboard-list",
+      pack: "fontawesome",
+      alwaysEnabled: true,
+    },
     {
       key: "/comodos",
       title: "Cômodos",
       icon: "lightbulb",
       pack: "fontawesome",
+      alwaysEnabled: true,
     },
-    { key: "/tue", title: "TUEs", icon: "lightning-bolt", pack: "material" },
+    {
+      key: "/tue",
+      title: "TUEs",
+      icon: "bolt",
+      pack: "fontawesome",
+      alwaysEnabled: false,
+    },
     {
       key: "/quadro",
       title: "Quadro",
-      icon: "electric-switch",
-      pack: "material",
+      icon: "sitemap",
+      pack: "fontawesome",
+      alwaysEnabled: false,
     },
-    // 👇 A NOSSA NOVA ABA (Fica antes do Guia)
     {
       key: "/orcamento",
       title: "Materiais",
-      icon: "clipboard-list",
+      icon: "clipboard-check",
       pack: "fontawesome",
+      alwaysEnabled: false,
     },
-    { key: "/guia", title: "Guia", icon: "tools", pack: "fontawesome" },
+    {
+      key: "/guia",
+      title: "Guia",
+      icon: "tools",
+      pack: "fontawesome",
+      alwaysEnabled: true,
+    },
   ];
 
   return (
@@ -67,34 +86,50 @@ function BarraInferiorFixa() {
         {tabs.map((tab) => {
           const isActive = pathname === tab.key;
 
-          // 💡 Lógica da Trava Inteligente
-          const isOrcamento = tab.key === "/orcamento";
-          const isBloqueado = isOrcamento && !temProjeto;
+          // 💡 SE O PROJETO TIVER VAZIO, BLOQUEIA TUE, QUADRO E MATERIAIS
+          const isDisabled = projetoVazio && !tab.alwaysEnabled;
 
-          const activeColor = "#208AEF";
-          const inactiveColor = isBloqueado ? "#d1d5db" : "#6b7280"; // Fica cinza bem clarinho se bloqueado
-          const color = isActive ? activeColor : inactiveColor;
+          const activeColor = "#2563eb";
+          const inactiveColor = "#6b7280";
+          const disabledColor = "#d1d5db"; // Cor cinza claro para bloqueado
+
+          const color = isActive
+            ? activeColor
+            : isDisabled
+              ? disabledColor
+              : inactiveColor;
 
           return (
             <TouchableOpacity
               key={tab.key}
-              style={styles.tabItem}
-              activeOpacity={isBloqueado ? 1 : 0.2} // Tira o efeito de clique se estiver bloqueado
+              style={[styles.tabItem, isDisabled && { opacity: 0.5 }]}
               onPress={() => {
-                if (isBloqueado) return; // 🔒 Não faz nada se tentar clicar bloqueado
+                if (isDisabled) {
+                  const msg =
+                    "Adicione ao menos um Cômodo antes de acessar esta aba.";
+                  Platform.OS === "web"
+                    ? window.alert(msg)
+                    : Alert.alert("Aba Bloqueada", msg);
+                  return;
+                }
                 router.replace(tab.key as any);
               }}
+              activeOpacity={0.7}
             >
               {tab.pack === "fontawesome" ? (
                 <FontAwesome5 name={tab.icon as any} size={20} color={color} />
               ) : (
                 <MaterialCommunityIcons
                   name={tab.icon as any}
-                  size={24}
+                  size={22}
                   color={color}
                 />
               )}
-              <Text style={[styles.tabLabel, { color }]}>{tab.title}</Text>
+              {(isActive || Platform.OS === "web") && (
+                <Text style={[styles.tabLabel, { color }]} numberOfLines={1}>
+                  {tab.title}
+                </Text>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -103,7 +138,6 @@ function BarraInferiorFixa() {
   );
 }
 
-// Layout principal que abraça todo o projeto
 function LayoutRaiz() {
   return (
     <DataProvider>
@@ -118,43 +152,9 @@ function LayoutRaiz() {
 }
 
 export default function RootLayout() {
-  const [exibirTermo, setExibirTermo] = useState(false);
-
-  useEffect(() => {
-    // checarAtualizacao(); // Se você já usa isso no Residencial, mantenha
-    verificarAceiteTermo();
-  }, []);
-
-  const verificarAceiteTermo = async () => {
-    try {
-      const aceitou = await AsyncStorage.getItem(
-        "@eletrica_residencial:termo_aceito",
-      );
-      if (aceitou !== "true") {
-        setExibirTermo(true);
-      }
-    } catch (error) {
-      console.log("Erro ao verificar termo:", error);
-    }
-  };
-
-  const handleAceitarTermo = async () => {
-    try {
-      await AsyncStorage.setItem("@eletrica_residencial:termo_aceito", "true");
-      setExibirTermo(false);
-    } catch (error) {
-      console.log("Erro ao salvar aceite:", error);
-    }
-  };
-
   return (
     <SafeAreaProvider>
       <LayoutRaiz />
-      {/* MODAL INJETADO AQUI */}
-      <ModalTermoResponsabilidade
-        visivel={exibirTermo}
-        onAceitar={handleAceitarTermo}
-      />
     </SafeAreaProvider>
   );
 }
@@ -168,45 +168,47 @@ const styles = StyleSheet.create({
         maxWidth: 450,
         width: "100%",
         alignSelf: "center",
+        height: "100vh",
       },
-      default: {
-        width: "100%",
-      },
+      default: { width: "100%" },
     }),
   },
   tabBarWrapper: {
     maxWidth: 450,
-    width: "92%",
+    width: "96%",
     alignSelf: "center",
     backgroundColor: "#ffffff",
     borderRadius: 16,
-    height: 70,
-    paddingBottom: 10,
-    paddingTop: 8,
+    height: 65,
+    paddingBottom: 6,
+    paddingTop: 6,
     elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...Platform.select({
+      web: { boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)" },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+    }),
     justifyContent: "center",
     position: "absolute",
-    left: "4%",
-    right: "4%",
+    left: "2%",
+    right: "2%",
   },
   tabBar: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
     alignItems: "center",
     flex: 1,
+    paddingHorizontal: 5,
   },
-  tabItem: {
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
+  tabItem: { alignItems: "center", justifyContent: "center", flex: 1 },
   tabLabel: {
-    fontSize: 10, // 💡 Diminuí um pouco a fonte para caber as 6 abas perfeitamente
+    fontSize: 10,
     fontWeight: "bold",
-    marginTop: 4,
+    marginTop: 2,
+    textAlign: "center",
   },
 });
