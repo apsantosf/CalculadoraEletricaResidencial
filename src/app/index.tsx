@@ -33,7 +33,8 @@ export default function ScreenInicio() {
 
   const abrirManual = () => {
     // Coloque aqui o link real do manual do Residencial
-    const urlManual = "https://drive.google.com/sua-url-aqui";
+    const urlManual =
+      "https://drive.google.com/file/d/1aotS8GKZ92lalZR4whRGmYnAYFEB0Yxl/view?usp=drive_link";
     Linking.openURL(urlManual).catch(() => {
       Alert.alert("Erro", "Não foi possível abrir o link do manual.");
     });
