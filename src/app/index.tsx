@@ -1,8 +1,8 @@
 // src/app/index.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // 💡 ADICIONADO
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react"; // 💡 ADICIONADO
+import { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -17,8 +17,9 @@ import {
   View,
 } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
-import ModalTermoResponsabilidade from "../components/ui/ModalTermoResponsabilidade"; // 💡 ADICIONADO
+import ModalTermoResponsabilidade from "../components/ui/ModalTermoResponsabilidade";
 import { useData } from "../context/DataContext";
+import { checarAtualizacao } from "../utils/UpdateHelper"; // 💡 RECUPERADO: Importação da Atualização
 
 export default function ScreenInicio() {
   const router = useRouter();
@@ -32,9 +33,12 @@ export default function ScreenInicio() {
 
   const [modalProjetosVisivel, setModalProjetosVisivel] = useState(false);
   const [busca, setBusca] = useState("");
-
-  // 💡 ESTADO PARA CONTROLAR O TERMO DE RESPONSABILIDADE
   const [termoVisivel, setTermoVisivel] = useState(false);
+
+  // 💡 RECUPERADO: Chama a verificação de atualização assim que a tela abre
+  useEffect(() => {
+    checarAtualizacao();
+  }, []);
 
   // 💡 VERIFICA SE O USUÁRIO JÁ ACEITOU O TERMO ALGUMA VEZ
   useEffect(() => {
@@ -44,7 +48,7 @@ export default function ScreenInicio() {
           "@EletricaResidencial_TermoAceito",
         );
         if (aceito !== "sim") {
-          setTermoVisivel(true); // Se nunca aceitou, mostra o modal
+          setTermoVisivel(true);
         }
       } catch (error) {
         console.error("Erro ao checar termo de responsabilidade:", error);
@@ -60,12 +64,11 @@ export default function ScreenInicio() {
       setTermoVisivel(false);
     } catch (error) {
       console.error("Erro ao salvar aceite do termo:", error);
-      setTermoVisivel(false); // Fecha mesmo se der erro para não travar o app
+      setTermoVisivel(false);
     }
   };
 
   const abrirManual = () => {
-    // Link do manual do Residencial atualizado
     const urlManual =
       "https://drive.google.com/file/d/1aotS8GKZ92lalZR4whRGmYnAYFEB0Yxl/view?usp=drive_link";
     Linking.openURL(urlManual).catch(() => {
@@ -74,14 +77,14 @@ export default function ScreenInicio() {
   };
 
   const handleNovoProjeto = () => {
-    zerarProjeto(); // Limpa a mesa de trabalho
-    router.push("/carga"); // Envia para a tela de preenchimento
+    zerarProjeto();
+    router.push("/carga");
   };
 
   const handleAbrirProjeto = (id: string) => {
     carregarProjeto(id);
     setModalProjetosVisivel(false);
-    router.push("/carga"); // Abre o projeto e vai para a tela inicial de dados
+    router.push("/carga");
   };
 
   const confirmarExclusao = (id: string, nome: string) => {
@@ -119,7 +122,6 @@ export default function ScreenInicio() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* BOTÃO DO MANUAL (DESTAQUE) */}
         <TouchableOpacity
           style={styles.btnManual}
           onPress={abrirManual}
@@ -134,7 +136,6 @@ export default function ScreenInicio() {
           <Text style={styles.btnManualText}>Ler Manual do Usuário</Text>
         </TouchableOpacity>
 
-        {/* ÁREA DE AÇÃO PRINCIPAL */}
         <View style={styles.cardAcao}>
           <Text style={styles.cardTitle}>
             Bem-vindo ao Elétrica Residencial!
@@ -158,7 +159,6 @@ export default function ScreenInicio() {
           </TouchableOpacity>
         </View>
 
-        {/* GERENCIAMENTO DE PROJETOS SALVOS */}
         <Text style={styles.sectionTitle}>Histórico de Projetos</Text>
         <Text style={styles.labelSecundario}>
           Resgate ou gerencie projetos salvos no dispositivo:
@@ -198,13 +198,12 @@ export default function ScreenInicio() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* 💡 AQUI ENTRA O MODAL DO TERMO DE RESPONSABILIDADE */}
+      {/* 💡 MODAL DO TERMO DE RESPONSABILIDADE */}
       <ModalTermoResponsabilidade
         visivel={termoVisivel}
         onAceitar={handleAceitarTermo}
       />
 
-      {/* MODAL COM BUSCA E LISTA FORMATADA (IGUAL AO PREDIAL) */}
       <Modal visible={modalProjetosVisivel} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
