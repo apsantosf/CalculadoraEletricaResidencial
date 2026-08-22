@@ -1,7 +1,8 @@
 // src/app/index.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // 💡 ADICIONADO
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react"; // 💡 ADICIONADO
 import {
   Alert,
   FlatList,
@@ -16,6 +17,7 @@ import {
   View,
 } from "react-native";
 import CustomHeader from "../components/ui/CustomHeader";
+import ModalTermoResponsabilidade from "../components/ui/ModalTermoResponsabilidade"; // 💡 ADICIONADO
 import { useData } from "../context/DataContext";
 
 export default function ScreenInicio() {
@@ -31,8 +33,39 @@ export default function ScreenInicio() {
   const [modalProjetosVisivel, setModalProjetosVisivel] = useState(false);
   const [busca, setBusca] = useState("");
 
+  // 💡 ESTADO PARA CONTROLAR O TERMO DE RESPONSABILIDADE
+  const [termoVisivel, setTermoVisivel] = useState(false);
+
+  // 💡 VERIFICA SE O USUÁRIO JÁ ACEITOU O TERMO ALGUMA VEZ
+  useEffect(() => {
+    const checarTermo = async () => {
+      try {
+        const aceito = await AsyncStorage.getItem(
+          "@EletricaResidencial_TermoAceito",
+        );
+        if (aceito !== "sim") {
+          setTermoVisivel(true); // Se nunca aceitou, mostra o modal
+        }
+      } catch (error) {
+        console.error("Erro ao checar termo de responsabilidade:", error);
+      }
+    };
+    checarTermo();
+  }, []);
+
+  // 💡 FUNÇÃO PARA GRAVAR O ACEITE E FECHAR O MODAL
+  const handleAceitarTermo = async () => {
+    try {
+      await AsyncStorage.setItem("@EletricaResidencial_TermoAceito", "sim");
+      setTermoVisivel(false);
+    } catch (error) {
+      console.error("Erro ao salvar aceite do termo:", error);
+      setTermoVisivel(false); // Fecha mesmo se der erro para não travar o app
+    }
+  };
+
   const abrirManual = () => {
-    // Coloque aqui o link real do manual do Residencial
+    // Link do manual do Residencial atualizado
     const urlManual =
       "https://drive.google.com/file/d/1aotS8GKZ92lalZR4whRGmYnAYFEB0Yxl/view?usp=drive_link";
     Linking.openURL(urlManual).catch(() => {
@@ -164,6 +197,12 @@ export default function ScreenInicio() {
           <FontAwesome5 name="chevron-down" size={14} color="#6b7280" />
         </TouchableOpacity>
       </ScrollView>
+
+      {/* 💡 AQUI ENTRA O MODAL DO TERMO DE RESPONSABILIDADE */}
+      <ModalTermoResponsabilidade
+        visivel={termoVisivel}
+        onAceitar={handleAceitarTermo}
+      />
 
       {/* MODAL COM BUSCA E LISTA FORMATADA (IGUAL AO PREDIAL) */}
       <Modal visible={modalProjetosVisivel} transparent animationType="slide">
@@ -358,7 +397,6 @@ const styles = StyleSheet.create({
   },
   pickerButtonText: { fontSize: 15, color: "#1f2937", fontWeight: "600" },
 
-  // Modal Styles (Iguais ao Predial)
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
