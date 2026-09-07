@@ -2,7 +2,7 @@
   "expo": {
     "name": "Elétrica Residencial",
     "slug": "CalculadoraEletricaResidencial",
-    "version": "3.1.1",
+    "version": "3.1.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
@@ -15,7 +15,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.apsantosf.eletricaresidencial",
-      "versionCode": 44
+      "versionCode": 45
     },
     "plugins": [
       "expo-router",
@@ -30,7 +30,15 @@
         }
       ],
       "expo-image",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
