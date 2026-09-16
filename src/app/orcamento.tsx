@@ -654,6 +654,10 @@ const styles = StyleSheet.create({
     width: 50,
     height: 36,
     textAlign: "center",
+    textAlignVertical: "center", // 💡 Centraliza o texto verticalmente no Android
+    paddingVertical: 0, // 💡 Remove a margem invisível do Android
+    paddingTop: 0, // 💡 Força o topo a colar na borda
+    paddingBottom: 0, // 💡 Força a base a colar na borda
     fontSize: 16,
     fontWeight: "bold",
     color: "#2563eb",
