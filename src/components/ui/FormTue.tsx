@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 
-// Sugestões rápidas de TUEs com potências médias para facilitar a vida do projetista
 const OPCOES_TUE = [
   { label: "Ar-Condicionado 9.000 BTU", potencia: 820 },
   { label: "Ar-Condicionado 12.000 BTU", potencia: 1100 },
@@ -34,6 +33,7 @@ export default function FormTue({
 }) {
   const [nomeEquipamento, setNomeEquipamento] = useState(OPCOES_TUE[0].label);
   const [potencia, setPotencia] = useState(OPCOES_TUE[0].potencia.toString());
+  const [tensaoEscolhida, setTensaoEscolhida] = useState<number>(220);
 
   const handleSelecaoPicker = (itemValue: string) => {
     const selecao = OPCOES_TUE.find((e) => e.label === itemValue);
@@ -55,14 +55,12 @@ export default function FormTue({
     onCalcular({
       nome: nomeEquipamento,
       potencia: pot,
+      tensaoEspecifica: tensaoEscolhida,
     });
   };
 
   const handleAdicionar = () => {
     onAdicionar();
-    // Opcional: Resetar para o padrão após adicionar se desejar
-    // setNomeEquipamento(OPCOES_TUE[0].label);
-    // setPotencia(OPCOES_TUE[0].potencia.toString());
   };
 
   return (
@@ -83,24 +81,63 @@ export default function FormTue({
 
       <Text style={styles.label}>Nome do Equipamento (Livre / Editável)</Text>
       <TextInput
-        style={styles.inputNome}
+        style={styles.input}
         value={nomeEquipamento}
-        onChangeText={(text) => {
-          setNomeEquipamento(text);
-        }}
+        onChangeText={setNomeEquipamento}
         placeholder="Ex: Torno CNC 3000W"
       />
 
-      <Text style={styles.label}>Potência (Watts)</Text>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        value={potencia}
-        onChangeText={(val) => {
-          setPotencia(val);
-        }}
-        placeholder="0"
-      />
+      <View style={styles.rowInputs}>
+        <View style={{ flex: 1, marginRight: 10 }}>
+          <Text style={styles.label}>Potência (W)</Text>
+          <TextInput
+            style={styles.inputHalf}
+            keyboardType="numeric"
+            value={potencia}
+            onChangeText={setPotencia}
+            placeholder="0"
+          />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>Tensão da Tomada</Text>
+          <View style={styles.tensaoContainer}>
+            <TouchableOpacity
+              style={[
+                styles.botaoTensao,
+                tensaoEscolhida === 127 && styles.botaoTensaoAtivo,
+              ]}
+              onPress={() => setTensaoEscolhida(127)}
+            >
+              <Text
+                style={[
+                  styles.textoTensao,
+                  tensaoEscolhida === 127 && styles.textoTensaoAtivo,
+                ]}
+              >
+                127V
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.botaoTensao,
+                tensaoEscolhida === 220 && styles.botaoTensaoAtivo,
+              ]}
+              onPress={() => setTensaoEscolhida(220)}
+            >
+              <Text
+                style={[
+                  styles.textoTensao,
+                  tensaoEscolhida === 220 && styles.textoTensaoAtivo,
+                ]}
+              >
+                220V
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
 
       <View style={styles.containerBotoes}>
         <TouchableOpacity style={styles.botaoCalcular} onPress={handleCalcular}>
@@ -161,6 +198,31 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 15,
   },
+  rowInputs: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  inputHalf: {
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 15,
+  },
+  tensaoContainer: { flexDirection: "row", gap: 6, height: 44 },
+  botaoTensao: {
+    flex: 1,
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  botaoTensaoAtivo: { backgroundColor: "#dbeafe", borderColor: "#2563eb" },
+  textoTensao: { fontSize: 14, color: "#4b5563", fontWeight: "600" },
+  textoTensaoAtivo: { color: "#1d4ed8" },
   containerBotoes: {
     flexDirection: "row",
     gap: 10,

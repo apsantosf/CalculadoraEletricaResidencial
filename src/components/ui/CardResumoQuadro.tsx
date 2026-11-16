@@ -15,13 +15,26 @@ interface CardResumoQuadroProps {
   resultadoQDC: ResultadoDimensionamento;
   resultadoDemanda: ResultadoDimensionamento;
   concessionaria: string;
+  // 🚀 NOVOS PARÂMETROS PARA EXIBIR A TENSÃO
+  tipoPadraoNovo?: string;
+  tensaoFornecimento?: string;
 }
 
 export function CardResumoQuadro({
   resultadoQDC,
   resultadoDemanda,
   concessionaria,
+  tipoPadraoNovo,
+  tensaoFornecimento,
 }: CardResumoQuadroProps) {
+  // Monta a string da tensão para exibir (ex: "Bifásico (127V / 220V)" ou só a tensão)
+  const infoTensao =
+    tipoPadraoNovo && tensaoFornecimento
+      ? `${tipoPadraoNovo} (${tensaoFornecimento})`
+      : tensaoFornecimento
+        ? tensaoFornecimento
+        : "";
+
   return (
     <View style={styles.container}>
       {/* CARTÃO VERDE: QDC */}
@@ -29,6 +42,29 @@ export function CardResumoQuadro({
         <Text style={styles.tituloRelatorio}>
           💡 QDC - INSTALADO (INTERNO):
         </Text>
+
+        {/* 🚀 EXIBIÇÃO DA TENSÃO NO QUADRO INTERNO */}
+        {infoTensao !== "" && (
+          <View
+            style={[
+              styles.linhaResumo,
+              {
+                borderBottomWidth: 1.5,
+                borderBottomColor: "rgba(255,255,255,0.4)",
+                paddingBottom: 8,
+                marginBottom: 4,
+              },
+            ]}
+          >
+            <Text style={[styles.labelBranco, { fontWeight: "bold" }]}>
+              Sistema Exigido:
+            </Text>
+            <Text style={[styles.valorAmarelo, { fontSize: 13 }]}>
+              {infoTensao}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.linhaResumo}>
           <Text style={styles.labelBranco}>Potência Total Bruta:</Text>
           <Text style={styles.valorBranco}>
@@ -56,6 +92,31 @@ export function CardResumoQuadro({
         <Text style={[styles.tituloRelatorio, { color: "#c7d2fe" }]}>
           🏢 PADRÃO DE ENTRADA ({concessionaria}):
         </Text>
+
+        {/* 🚀 EXIBIÇÃO DA TENSÃO NO PADRÃO EXTERNO */}
+        {infoTensao !== "" && (
+          <View
+            style={[
+              styles.linhaResumo,
+              {
+                borderBottomWidth: 1.5,
+                borderBottomColor: "rgba(255,255,255,0.4)",
+                paddingBottom: 8,
+                marginBottom: 4,
+              },
+            ]}
+          >
+            <Text style={[styles.labelBranco, { fontWeight: "bold" }]}>
+              Fornecimento:
+            </Text>
+            <Text
+              style={[styles.valorAmarelo, { color: "#ca8a04", fontSize: 13 }]}
+            >
+              {infoTensao}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.linhaResumo}>
           <Text style={styles.labelBranco}>Demanda Corrigida (S):</Text>
           <Text style={[styles.valorAmarelo, { color: "#ca8a04" }]}>

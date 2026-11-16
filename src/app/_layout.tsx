@@ -141,11 +141,14 @@ function BarraInferiorFixa() {
 function LayoutRaiz() {
   return (
     <DataProvider>
-      <View style={styles.wrapperWeb}>
-        <View style={{ flex: 1 }}>
-          <Slot />
+      {/* Container pai absoluto para centralizar tudo */}
+      <View style={styles.rootContainer}>
+        <View style={styles.wrapperWeb}>
+          <View style={{ flex: 1 }}>
+            <Slot />
+          </View>
+          <BarraInferiorFixa />
         </View>
-        <BarraInferiorFixa />
       </View>
     </DataProvider>
   );
@@ -160,21 +163,27 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: "#f3f4f6", // Cor de fundo fora da área principal na web
+    alignItems: "center", // Centraliza o wrapperWeb no ecrã
+  },
   wrapperWeb: {
     flex: 1,
     backgroundColor: "#f3f4f6",
     ...Platform.select({
       web: {
-        maxWidth: 450,
+        maxWidth: 420, // 🚀 AQUI: Alterado de 600 para 420 (Largura padrão de telemóvel)
         width: "100%",
-        alignSelf: "center",
         height: "100vh",
+        position: "relative",
       },
       default: { width: "100%" },
     }),
   },
+
   tabBarWrapper: {
-    maxWidth: 450,
+    maxWidth: 420, // 🚀 AQUI: Adicione esta linha para o menu acompanhar a largura
     width: "96%",
     alignSelf: "center",
     backgroundColor: "#ffffff",
@@ -194,8 +203,6 @@ const styles = StyleSheet.create({
     }),
     justifyContent: "center",
     position: "absolute",
-    left: "2%",
-    right: "2%",
   },
   tabBar: {
     flexDirection: "row",

@@ -1,5 +1,6 @@
 // src/app/quadro.tsx
 import { FontAwesome5 } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
@@ -31,7 +32,6 @@ const aplicarDemandaTuesLista = (
   if (tueWatts.length === 2) fator = 0.9;
   else if (tueWatts.length >= 3 && tueWatts.length <= 5) fator = 0.8;
   else if (tueWatts.length >= 6) fator = 0.7;
-
   return tueWatts.map((pot) => pot * fator);
 };
 
@@ -39,7 +39,6 @@ export default function TelaQuadro() {
   const { comodos, tensaoGeral, distribuidora, tipoImovel, removerComodo } =
     useData();
   const [resultadosRamal, setResultadosRamal] = useState<any>(null);
-
   const [reservaAplicada, setReservaAplicada] = useState(false);
 
   const calcularPotenciasAtuais = () => {
@@ -69,15 +68,11 @@ export default function TelaQuadro() {
       });
     });
 
-    const totalBrutoAplicado = Math.round(
-      totalBrutoOriginal * fatorMultiplicador,
-    );
-
     return {
       somaIlumTugVA: Math.round(somaIlumTugVA),
       listaWattsTue: listaVATue.map(Math.round),
       totalBrutoOriginal: Math.round(totalBrutoOriginal),
-      totalBrutoAplicado,
+      totalBrutoAplicado: Math.round(totalBrutoOriginal * fatorMultiplicador),
     };
   };
 
@@ -91,7 +86,36 @@ export default function TelaQuadro() {
 
   const limiteBifasico = 12000;
   const limiteTrifasico = 25000;
+
   const exigeTrifasico = totalBrutoAplicado > limiteTrifasico;
+  const exigeBifasicoPorCarga =
+    totalBrutoAplicado > limiteBifasico && !exigeTrifasico;
+
+  const temEquipamento220 = comodos.some((c) =>
+    c.dispositivos.some((d) => (d.tensao || tensaoGeral) === 220),
+  );
+  const exigeBifasicoPorTensao = tensaoGeral === 127 && temEquipamento220;
+
+  const ehMultiFasico =
+    exigeTrifasico || exigeBifasicoPorCarga || exigeBifasicoPorTensao;
+
+  const tipoPadraoNovo = exigeTrifasico
+    ? "Trifásico"
+    : ehMultiFasico
+      ? "Bifásico"
+      : "Monofásico";
+  const tensaoFornecimento = ehMultiFasico
+    ? tensaoGeral === 127
+      ? "127V / 220V"
+      : "220V / 380V"
+    : `${tensaoGeral} V`;
+
+  const motivoMudanca = exigeTrifasico
+    ? `A sua carga total (${Math.round(totalBrutoAplicado)} VA) ultrapassou o limite máximo.`
+    : exigeBifasicoPorTensao
+      ? `O projeto possui uma rede 127V, mas foram adicionados equipamentos de 220V.`
+      : `A sua carga total (${Math.round(totalBrutoAplicado)} VA) ultrapassou o limite seguro Monofásico.`;
+  const textoAvisoOficial = `AÇÃO OBRIGATÓRIA: É responsabilidade do cliente contatar a concessionária (${distribuidora || "local"}) para solicitar a homologação do novo padrão de entrada ${tipoPadraoNovo}. A não adequação pode gerar multas e riscos severos à instalação.`;
 
   const resultadoQDC = projetoTemDados
     ? calcularAlimentadorGeral({
@@ -126,20 +150,35 @@ export default function TelaQuadro() {
       resultadoDemanda,
       resultadosRamal,
       tipoImovel,
+      avisoConcessionaria: ehMultiFasico
+        ? { motivo: motivoMudanca, aviso: textoAvisoOficial }
+        : null,
+      tipoPadraoNovo,
+      tensaoFornecimento,
     });
   };
 
   const handleCompartilharRelatorio = async () => {
-    let texto = `⚡ RELATÓRIO TÉCNICO ELÉTRICO ⚡\n`;
-    texto += `🏠 Tipo de Imóvel: ${tipoImovel}\n`;
-    texto += `📐 Norma NBR 5410 e Distribuidora (${distribuidora})\n`;
-    texto += `🔌 Tensão do Sistema: ${tensaoGeral} V\n`;
+    let texto = `⚡ *RELATÓRIO TÉCNICO ELÉTRICO* ⚡\n`;
+    texto += `🏠 Imóvel: ${tipoImovel}\n`;
+    texto += `📐 Norma: NBR 5410 | Distribuidora: ${distribuidora}\n`;
+    texto += `🔌 Fornecimento Exigido: ${tipoPadraoNovo} (${tensaoFornecimento})\n`;
+    if (resultadoDemanda) {
+      texto += `⚡ Corrente Principal (Disj. Geral): ${resultadoDemanda.disjuntorGeral}A\n`;
+    }
     texto += `--------------------------------------\n\n`;
 
+    if (ehMultiFasico) {
+      texto += `🚨 *MUDANÇA DE PADRÃO EXIGIDA*\n`;
+      texto += `Motivo: ${motivoMudanca}\n`;
+      texto += `⚠️ ${textoAvisoOficial}\n`;
+      texto += `--------------------------------------\n\n`;
+    }
+
     if (projetoTemDados) {
-      texto += `📋 RESUMO POR CÔMODOS E CIRCUITOS:\n`;
+      texto += `📋 *RESUMO POR CÔMODOS E CIRCUITOS:*\n`;
       comodos.forEach((c) => {
-        texto += `\n• ${c.nome}:\n`;
+        texto += `\n📍 *${c.nome}:*\n`;
         c.dispositivos.forEach((d) => {
           const potTotal = d.potencia * d.quantidade;
           let potVA = potTotal;
@@ -148,22 +187,40 @@ export default function TelaQuadro() {
             potVA = potTotal / fp;
           }
           const unidade = d.tipo === "tue" ? "W" : "VA";
-          const dim = obterDimensionamentoCircuito(d.tipo, potVA, tensaoGeral);
-          texto += `  - ${d.quantidade}x ${d.nome} (${potTotal} ${unidade}) | Fio: ${dim.cabo}mm² | Disj: ${dim.disj}A\n`;
+          const dim = obterDimensionamentoCircuito(
+            d.tipo,
+            potVA,
+            d.tensao || tensaoGeral,
+          );
+
+          const icone =
+            d.tipo === "iluminacao" ? "💡" : d.tipo === "tug" ? "🔌" : "♨️";
+          const infoTensao = d.tensao ? ` [${d.tensao}V]` : "";
+
+          texto += ` ${icone} ${d.quantidade}x ${d.nome} (${potTotal} ${unidade})${infoTensao}\n`;
+          texto += `    ↳ 🟢 Fio: ${dim.cabo}mm² | 🔴 Disj: ${dim.disj}A\n`;
         });
       });
       texto += `\n--------------------------------------\n\n`;
 
-      texto += `💡 QDC INTERNO (INSTALADO):\nPotência: ${resultadoQDC?.potenciaTotalVA} VA\nCabo: ${resultadoQDC?.caboGeral} mm²\nDisjuntor: ${resultadoQDC?.disjuntorGeral} A\n`;
-      texto += `\n🏢 DEMANDA PADRÃO (${distribuidora}):\nDemanda: ${resultadoDemanda?.potenciaTotalVA} VA\nCabo: ${resultadoDemanda?.caboGeral} mm²\nDisjuntor: ${resultadoDemanda?.disjuntorGeral} A\n\n`;
+      const idrGeral = resultadoQDC?.ehTrifasico ? "Tetrapolar" : "Bipolar";
+
+      texto += `🛡️ *ESQUEMA DO QUADRO (QDC)*\n`;
+      texto += `[🟧 DPS ] [⬛ GERAL ${resultadoQDC?.disjuntorGeral}A ] [🟦 IDR ${idrGeral}]\n`;
+
+      texto += `\n*Proteção Recomendada:*\n`;
+      texto += `Potência: ${resultadoQDC?.potenciaTotalVA} VA\n`;
+      texto += `Cabo Geral Interno: ${resultadoQDC?.caboGeral} mm²\n`;
+      texto += `Disjuntor Geral: ${resultadoQDC?.disjuntorGeral} A\n`;
     }
 
     if (resultadosRamal) {
-      texto += `📏 DIMENSIONAMENTO DO ALIMENTADOR:\nFornecimento: ${resultadosRamal.fornecimento}\n`;
+      texto += `\n📏 *ALIMENTADOR (MEDIDOR)*\n`;
+      texto += `Padrão: ${resultadosRamal.fornecimento}\n`;
       if (resultadosRamal.trecho1) {
-        texto += `Trecho Externo (Rua -> Medidor): Cabo ${resultadosRamal.trecho1.bitola} mm² | Disj: ${resultadosRamal.trecho1.disjuntor} A\n`;
+        texto += `Rua p/ Medidor: Fio ${resultadosRamal.trecho1.bitola}mm² | Disj ${resultadosRamal.trecho1.disjuntor}A\n`;
       }
-      texto += `Trecho Interno (Medidor -> QDC): Cabo ${resultadosRamal.trecho2.bitola} mm² | Disj: ${resultadosRamal.trecho2.disjuntor} A\n`;
+      texto += `Medidor p/ QDC: Fio ${resultadosRamal.trecho2.bitola}mm² | Disj ${resultadosRamal.trecho2.disjuntor}A\n`;
     }
 
     await Share.share({ message: texto });
@@ -228,41 +285,37 @@ export default function TelaQuadro() {
 
         {projetoTemDados && (
           <View style={{ marginBottom: 12 }}>
-            {exigeTrifasico ? (
+            {ehMultiFasico && (
               <View style={styles.alertaConcessionariaCritico}>
-                <FontAwesome5
-                  name="exclamation-triangle"
-                  size={16}
-                  color="#991b1b"
-                />
-                <View style={{ marginLeft: 10, flex: 1 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    marginBottom: 6,
+                  }}
+                >
+                  <FontAwesome5
+                    name="exclamation-triangle"
+                    size={18}
+                    color="#991b1b"
+                  />
                   <Text style={styles.tituloAlertaCritico}>
-                    Atenção: Padrão Trifásico Exigido
+                    ⚠️ PADRÃO DE ENTRADA ALTERADO
                   </Text>
-                  <Text style={styles.textoAlertaCritico}>
-                    A carga atual ({Math.round(totalBrutoAplicado)} VA)
-                    ultrapassa o limite de 25kVA. Segundo a{" "}
-                    {distribuidora || "concessionária local"}, o dimensionamento
-                    foi ajustado automaticamente para o sistema Trifásico.
+                </View>
+
+                <Text style={styles.textoAlertaCritico}>{motivoMudanca}</Text>
+
+                <View style={styles.caixaAvisoConcessionaria}>
+                  <Text style={styles.textoAvisoConcessionaria}>
+                    📢{" "}
+                    <Text style={{ fontWeight: "bold" }}>
+                      {textoAvisoOficial}
+                    </Text>
                   </Text>
                 </View>
               </View>
-            ) : totalBrutoAplicado > limiteBifasico ? (
-              <View style={styles.alertaConcessionariaAviso}>
-                <FontAwesome5 name="info-circle" size={16} color="#0369a1" />
-                <View style={{ marginLeft: 10, flex: 1 }}>
-                  <Text style={styles.tituloAlertaAviso}>
-                    Recomendação da {distribuidora || "Concessionária"}
-                  </Text>
-                  <Text style={styles.textoAlertaAviso}>
-                    A carga está entre 12kVA e 25kVA (
-                    {Math.round(totalBrutoAplicado)} VA). Recomenda-se homologar
-                    um padrão de entrada Bifásico ou Trifásico na
-                    concessionária.
-                  </Text>
-                </View>
-              </View>
-            ) : null}
+            )}
           </View>
         )}
 
@@ -277,7 +330,9 @@ export default function TelaQuadro() {
 
         {projetoTemDados && (
           <View style={styles.quadroContainer}>
-            <Text style={styles.subtitulo}>📋 Relação de Cômodos</Text>
+            <Text style={styles.subtitulo}>
+              📋 Relação de Circuitos e Cargas
+            </Text>
             <View style={styles.cardLista}>
               {comodos.map((c) => (
                 <View key={c.id} style={styles.itemCircuito}>
@@ -285,6 +340,7 @@ export default function TelaQuadro() {
                     <Text style={styles.nomeCircuito}>{c.nome}</Text>
                     {c.dispositivos.map((d, index) => {
                       const potTotal = d.potencia * d.quantidade;
+                      const tensaoDisp = d.tensao || tensaoGeral;
                       let potVA = potTotal;
                       if (d.tipo === "tue") {
                         const fp = d.nome.toLowerCase().includes("chuveiro")
@@ -295,12 +351,18 @@ export default function TelaQuadro() {
                       const dim = obterDimensionamentoCircuito(
                         d.tipo,
                         potVA,
-                        tensaoGeral,
+                        tensaoDisp,
                       );
                       return (
                         <Text key={index} style={styles.textoDetalhe}>
                           ↳ {d.quantidade}x {d.nome} ({potTotal}{" "}
                           {d.tipo === "tue" ? "W" : "VA"})
+                          <Text
+                            style={{ color: "#2563eb", fontWeight: "bold" }}
+                          >
+                            {" "}
+                            [{tensaoDisp}V]
+                          </Text>
                           <Text
                             style={{ color: "#059669", fontWeight: "bold" }}
                           >
@@ -311,7 +373,7 @@ export default function TelaQuadro() {
                             style={{ color: "#dc2626", fontWeight: "bold" }}
                           >
                             {" "}
-                            - Disj. {dim.disj}A
+                            - Disj. {dim.disj}A ({tensaoDisp}V)
                           </Text>
                         </Text>
                       );
@@ -332,6 +394,8 @@ export default function TelaQuadro() {
                 resultadoQDC={resultadoQDC}
                 resultadoDemanda={resultadoDemanda}
                 concessionaria={distribuidora}
+                tipoPadraoNovo={tipoPadraoNovo}
+                tensaoFornecimento={tensaoFornecimento}
               />
             )}
           </View>
@@ -339,6 +403,30 @@ export default function TelaQuadro() {
 
         {(projetoTemDados || resultadosRamal) && (
           <View style={styles.botoesAcaoContainer}>
+            {ehMultiFasico && (
+              <TouchableOpacity
+                style={[
+                  styles.botaoExportar,
+                  {
+                    backgroundColor: "#f59e0b",
+                    marginBottom: 12,
+                    borderWidth: 2,
+                    borderColor: "#d97706",
+                  },
+                ]}
+                onPress={() => router.push("/balanceamento" as any)}
+              >
+                <Text
+                  style={[
+                    styles.textoBotaoExportar,
+                    { color: "#fff", fontWeight: "900" },
+                  ]}
+                >
+                  ⚖️ Balancear Cargas e Fases
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.botaoExportar,
@@ -350,12 +438,25 @@ export default function TelaQuadro() {
                 📄 Gerar Memorial em PDF
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={styles.botaoExportar}
+              style={[
+                styles.botaoExportar,
+                { backgroundColor: "#10b981", marginBottom: 12 },
+              ]}
               onPress={handleCompartilharRelatorio}
             >
               <Text style={styles.textoBotaoExportar}>
                 🟩 Enviar Resumo por WhatsApp
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.botaoExportar, { backgroundColor: "#7c3aed" }]}
+              onPress={() => router.push("/esquema-quadro" as any)}
+            >
+              <Text style={styles.textoBotaoExportar}>
+                ⚡ Ver Esquema Visual do QDC
               </Text>
             </TouchableOpacity>
           </View>
@@ -414,38 +515,34 @@ const styles = StyleSheet.create({
   },
   textoToggleReserva: { fontSize: 14, fontWeight: "bold", color: "#4b5563" },
   textoToggleReservaAtivo: { color: "#059669" },
-  alertaConcessionariaAviso: {
-    backgroundColor: "#f0f9ff",
-    borderColor: "#bae6fd",
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  tituloAlertaAviso: {
-    color: "#0369a1",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
-  textoAlertaAviso: { color: "#0c4a6e", fontSize: 13, lineHeight: 18 },
   alertaConcessionariaCritico: {
     backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "flex-start",
+    borderColor: "#fca5a5",
+    borderWidth: 2,
+    borderRadius: 10,
+    padding: 16,
   },
   tituloAlertaCritico: {
-    color: "#b91c1c",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 2,
+    color: "#991b1b",
+    fontSize: 15,
+    fontWeight: "900",
+    marginLeft: 8,
   },
-  textoAlertaCritico: { color: "#7f1d1d", fontSize: 13, lineHeight: 18 },
+  textoAlertaCritico: {
+    color: "#7f1d1d",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+    fontWeight: "500",
+  },
+  caixaAvisoConcessionaria: {
+    backgroundColor: "#fff1f2",
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#e11d48",
+  },
+  textoAvisoConcessionaria: { color: "#be123c", fontSize: 13, lineHeight: 18 },
   quadroContainer: { paddingBottom: 10 },
   subtitulo: {
     fontSize: 16,
@@ -478,11 +575,6 @@ const styles = StyleSheet.create({
   },
   textoDetalhe: { fontSize: 12, color: "#6b7280", marginTop: 4 },
   botoesAcaoContainer: { marginTop: 10 },
-  botaoExportar: {
-    backgroundColor: "#10b981",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
+  botaoExportar: { padding: 14, borderRadius: 8, alignItems: "center" },
   textoBotaoExportar: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
 });
