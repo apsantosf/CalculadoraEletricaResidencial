@@ -14,15 +14,25 @@ import { useData } from "../context/DataContext";
 import {
   calcularAlimentadorGeral,
   obterDimensionamentoCircuito,
+  obterFatorDemandaGeral,
 } from "../utils/calculations";
+
+const aplicarDemandaTuesLista = (tueWatts: number[]): number[] => {
+  if (tueWatts.length === 0) return [];
+  let fator = 1.0;
+  if (tueWatts.length === 2) fator = 0.9;
+  else if (tueWatts.length >= 3 && tueWatts.length <= 5) fator = 0.8;
+  else if (tueWatts.length >= 6) fator = 0.7;
+  return tueWatts.map((pot) => Math.round(pot * fator));
+};
 
 export default function TelaEsquemaQuadro() {
   const { comodos, tensaoGeral } = useData();
 
-  // 1. Extrair e calcular todos os dados a partir de "comodos"
   let somaIlumTugVA = 0;
   let listaWattsTue: number[] = [];
   let todosDispositivos: any[] = [];
+  let temEquipamento220 = false;
 
   (comodos || []).forEach((c) => {
     (c.dispositivos || []).forEach((d) => {
@@ -37,14 +47,20 @@ export default function TelaEsquemaQuadro() {
         somaIlumTugVA += potVA;
       }
 
-      const dim = obterDimensionamentoCircuito(d.tipo, potVA, tensaoGeral);
-
-      // 🚀 LÓGICA DE POLOS E TENSÃO
-      let qtdPolos = 1; // Padrão: Monopolar
       const tensaoDispositivo = d.tensao || tensaoGeral;
+      if (tensaoDispositivo === 220) {
+        temEquipamento220 = true;
+      }
 
+      const dim = obterDimensionamentoCircuito(
+        d.tipo,
+        potVA,
+        tensaoDispositivo,
+      );
+
+      let qtdPolos = 1;
       if (tensaoGeral === 127 && tensaoDispositivo === 220) {
-        qtdPolos = 2; // Bipolar
+        qtdPolos = 2;
       } else if (tensaoGeral === 220 && tensaoDispositivo === 380) {
         qtdPolos = 2;
       }
@@ -61,20 +77,31 @@ export default function TelaEsquemaQuadro() {
     });
   });
 
-  // 2. Calcula o disjuntor geral com base nas cargas
-  const resultadoGeral = calcularAlimentadorGeral({
+  const potenciaTotalBruta =
+    somaIlumTugVA + listaWattsTue.reduce((a, b) => a + b, 0);
+  const exigeTrifasico = potenciaTotalBruta > 25000;
+
+  const resultadoBruto = calcularAlimentadorGeral({
     potenciaIlumTugVA: Math.round(somaIlumTugVA),
     potenciasTueWatts: listaWattsTue,
     tensao: tensaoGeral,
+    forcarTrifasico: exigeTrifasico,
   });
 
-  // 3. Determina o tamanho visual do Disjuntor Geral / IDR
-  const potenciaTotalBruta =
-    somaIlumTugVA + listaWattsTue.reduce((a, b) => a + b, 0);
+  const resultadoGeral = calcularAlimentadorGeral({
+    potenciaIlumTugVA: Math.round(
+      somaIlumTugVA * obterFatorDemandaGeral(somaIlumTugVA),
+    ),
+    potenciasTueWatts: aplicarDemandaTuesLista(listaWattsTue),
+    tensao: tensaoGeral,
+    forcarTrifasico: exigeTrifasico || resultadoBruto?.ehTrifasico,
+  });
+
+  const exigeBifasicoPorTensao = tensaoGeral === 127 && temEquipamento220;
   let polosGeral = 1;
-  if (resultadoGeral?.ehTrifasico || potenciaTotalBruta > 25000) {
+  if (resultadoGeral?.ehTrifasico || exigeTrifasico) {
     polosGeral = 3;
-  } else if (potenciaTotalBruta > 12000) {
+  } else if (potenciaTotalBruta > 12000 || exigeBifasicoPorTensao) {
     polosGeral = 2;
   }
 
@@ -86,7 +113,6 @@ export default function TelaEsquemaQuadro() {
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 140, paddingTop: 16 }}
       >
-        {/* ⬅️ BOTÃO DE VOLTAR AO QUADRO GERAL */}
         <TouchableOpacity
           style={styles.botaoVoltar}
           onPress={() => router.replace("/quadro" as any)}
@@ -106,7 +132,6 @@ export default function TelaEsquemaQuadro() {
           </Text>
         </View>
 
-        {/* TRILHO 1: PROTEÇÃO DE ENTRADA E GERAL */}
         <Text style={styles.trilhoTitulo}>
           Trilho 1: Entrada e Proteção Geral
         </Text>
@@ -139,7 +164,7 @@ export default function TelaEsquemaQuadro() {
             />
             <ModuloDisjuntor
               tipo="idr"
-              rotulo="Diretor da IDR"
+              rotulo="IDR Principal"
               detalhe="30mA"
               corrente={resultadoGeral?.disjuntorGeral || 63}
               tensao={tensaoGeral}
@@ -148,7 +173,6 @@ export default function TelaEsquemaQuadro() {
           </View>
         </ScrollView>
 
-        {/* TRILHO 2 EM DIANTE: CIRCUITOS TERMINAIS */}
         <Text style={styles.trilhoTitulo}>
           Trilho 2+: Circuitos Terminais (Cômodos e Cargas)
         </Text>
@@ -185,7 +209,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  // 🚀 Estilos do Botão de Voltar adicionados
   botaoVoltar: {
     flexDirection: "row",
     alignItems: "center",
