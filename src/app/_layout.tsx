@@ -1,6 +1,8 @@
 // src/app/_layout.tsx
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Slot, usePathname, useRouter } from "expo-router";
+import * as ScreenOrientation from "expo-screen-orientation";
+import { useEffect } from "react";
 import {
   Alert,
   Platform,
@@ -155,6 +157,15 @@ function LayoutRaiz() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    // 🚀 Trava o app em modo retrato (Portrait Up) em dispositivos móveis
+    if (Platform.OS !== "web") {
+      ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP,
+      ).catch(() => {});
+    }
+  }, []);
+
   return (
     <SafeAreaProvider>
       <LayoutRaiz />
@@ -173,7 +184,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f3f4f6",
     ...Platform.select({
       web: {
-        maxWidth: 420, // 🚀 AQUI: Alterado de 600 para 420 (Largura padrão de telemóvel)
+        maxWidth: 420, // 🚀 Largura padrão de telemóvel
         width: "100%",
         height: "100vh",
         position: "relative",
@@ -183,7 +194,7 @@ const styles = StyleSheet.create({
   },
 
   tabBarWrapper: {
-    maxWidth: 420, // 🚀 AQUI: Adicione esta linha para o menu acompanhar a largura
+    maxWidth: 420,
     width: "96%",
     alignSelf: "center",
     backgroundColor: "#ffffff",
