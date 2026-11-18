@@ -2,7 +2,7 @@
   "expo": {
     "name": "Elétrica Residencial",
     "slug": "CalculadoraEletricaResidencial",
-    "version": "3.2.2",
+    "version": "3.2.3",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "calculadoraeletricaresidencial",
