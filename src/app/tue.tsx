@@ -13,9 +13,7 @@ import CardResultado from "../components/ui/CardResultado";
 import CustomHeader from "../components/ui/CustomHeader";
 import FormTue from "../components/ui/FormTue";
 import { useData } from "../context/DataContext";
-import {
-  dimensionarTUE
-} from "../utils/calculations";
+import { dimensionarTUE } from "../utils/calculations";
 
 export default function TelaTues() {
   const { adicionarComodo, removerComodo, tokenReset, comodos, tensaoGeral } =
@@ -110,8 +108,12 @@ export default function TelaTues() {
             <Text style={styles.avisoBloqueioTitulo}>⚠️ Acesso Bloqueado</Text>
             <Text style={styles.avisoBloqueioTexto}>
               Para preencher os Circuitos Específicos (TUEs), primeiro deve
-              voltar à aba de **Início** e selecionar a **Tensão de Trabalho
-              Interna**.
+              voltar à aba de <Text style={{ fontWeight: "bold" }}>Início</Text>{" "}
+              e selecionar a{" "}
+              <Text style={{ fontWeight: "bold" }}>
+                Tensão de Trabalho Interna
+              </Text>
+              .
             </Text>
           </View>
         ) : (

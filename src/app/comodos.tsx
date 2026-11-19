@@ -1,6 +1,6 @@
 // src/app/comodos.tsx
 import { Picker } from "@react-native-picker/picker";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -37,7 +37,8 @@ const TEMPLATES_COMODOS: Record<string, string> = {
 };
 
 export default function ScreenComodos() {
-  const { comodos, adicionarComodo, removerComodo, tensaoGeral } = useData();
+  const { comodos, adicionarComodo, removerComodo, tensaoGeral, tokenReset } =
+    useData();
 
   const [tipoAmbiente, setTipoAmbiente] = useState("Sala de Estar");
   const [nomeLivre, setNomeLivre] = useState("Sala de Estar");
@@ -45,6 +46,12 @@ export default function ScreenComodos() {
   const [perimetro, setPerimetro] = useState("");
 
   const [resultadoPrevio, setResultadoPrevio] = useState<any>(null);
+
+  useEffect(() => {
+    setArea("");
+    setPerimetro("");
+    setResultadoPrevio(null);
+  }, [tokenReset]);
 
   const mostrarInfoAreaPerimetro = () => {
     Keyboard.dismiss();
@@ -115,28 +122,34 @@ export default function ScreenComodos() {
 
   const handleDimensionar = () => {
     Keyboard.dismiss();
-    if (!area || !perimetro) {
-      const msg = "Preencha a Área e o Perímetro para dimensionar.";
+    const numArea = parseFloat(String(area).replace(",", "."));
+    const numPerimetro = parseFloat(String(perimetro).replace(",", "."));
+
+    if (
+      isNaN(numArea) ||
+      numArea <= 0 ||
+      isNaN(numPerimetro) ||
+      numPerimetro <= 0
+    ) {
+      const msg =
+        "Preencha valores válidos maiores que zero para Área e Perímetro.";
       Platform.OS === "web" ? window.alert(msg) : Alert.alert("Atenção", msg);
       return;
     }
+
     const { dispositivos } = gerarDispositivos();
     setResultadoPrevio(dispositivos);
   };
 
   const executarAdicao = () => {
     Keyboard.dismiss();
-    if (!area || !perimetro) {
-      const msg = "Preencha a Área e o Perímetro antes de adicionar.";
-      Platform.OS === "web" ? window.alert(msg) : Alert.alert("Atenção", msg);
-      return;
-    }
+    if (!resultadoPrevio) return;
 
     const { numArea, numPerimetro, dispositivos } = gerarDispositivos();
 
     adicionarComodo({
       id: Math.random().toString(),
-      nome: nomeLivre || tipoAmbiente,
+      nome: nomeLivre.trim() || tipoAmbiente,
       area: numArea,
       perimetro: numPerimetro,
       dispositivos: dispositivos,
@@ -301,6 +314,7 @@ export default function ScreenComodos() {
                 resultadoPrevio ? styles.botaoAdicionarPronto : null,
               ]}
               onPress={executarAdicao}
+              disabled={!resultadoPrevio}
             >
               <Text style={styles.textoBotaoBranco}>Adicionar Cômodo</Text>
             </TouchableOpacity>
@@ -483,7 +497,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  nomeComodo: { fontSize: 15, fontWeight: "bold", color: "#374151" },
-  botaoRemover: { fontSize: 14 },
+  nomeComodo: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#374151",
+    flexShrink: 1,
+  },
+  botaoRemover: { fontSize: 14, paddingLeft: 10, paddingVertical: 5 },
   textoDispositivo: { fontSize: 13, color: "#6b7280", marginTop: 4 },
 });
